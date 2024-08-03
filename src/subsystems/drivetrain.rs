@@ -21,6 +21,7 @@ impl Drivetrain {
 
 impl Subsystem<(f32, f32)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<(f32, f32)>) {
+        state.init().await;
         while let Some(output) = state.update().await {
             self.left_motor.set_voltage(output.0 as f64);
             self.right_motor.set_voltage(output.1 as f64);
@@ -46,5 +47,25 @@ impl<'a> State<(f32, f32)> for TankDrive<'a> {
             self.controller.left_stick.y().ok()? * 12.0,
             self.controller.right_stick.y().ok()? * 12.0,
         ))
+    }
+}
+
+pub struct VoltageDrive {
+    left_voltage: f64,
+    right_voltage: f64,
+}
+
+impl VoltageDrive {
+    pub fn new(left_voltage: f64, right_voltage: f64) -> Self {
+        Self {
+            left_voltage,
+            right_voltage,
+        }
+    }
+}
+
+impl State<(f32, f32)> for VoltageDrive {
+    async fn update(&mut self) -> Option<(f32, f32)> {
+        Some((self.left_voltage as f32, self.right_voltage as f32))
     }
 }

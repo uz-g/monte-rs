@@ -16,6 +16,8 @@ impl Lift {
 
 impl Subsystem<f64> for Lift {
     async fn run(&mut self, mut state: impl crate::state_machine::State<f64>) {
+        state.init().await;
+
         while let Some(output) = state.update().await {
             let _ = self.motor.set_voltage(output as f64);
 

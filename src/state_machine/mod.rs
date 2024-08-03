@@ -1,6 +1,5 @@
-use vexide_async::*;
-
 pub trait State<O> {
+    async fn init(&mut self) {}
     async fn update(&mut self) -> Option<O>;
 }
 
