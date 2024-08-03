@@ -1,17 +1,18 @@
 #![no_main]
 #![no_std]
-#![feature(error_in_core)]
 
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::{error::Error, fmt::Write, time::Duration};
+use core::{error::Error, time::Duration};
 
+use state_machine::Subsystem;
 use vexide::prelude::*;
 
-use crate::drivetrain::Drivetrain;
+mod state_machine;
+mod subsystems;
 
-mod drivetrain;
+use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
 
 struct Robot {
     drivetrain: Drivetrain,
@@ -30,31 +31,23 @@ impl Robot {
     }
 }
 
-impl CompetitionRobot for Robot {
-    type Error = Box<dyn Error>;
-
-    async fn autonomous(&mut self) -> Result<(), Box<dyn Error>> {
-        self.drivetrain.tank_drive(0.5, 0.5)?;
+impl Compete for Robot {
+    async fn autonomous(&mut self) {
         sleep(Duration::from_secs(2)).await;
-        self.drivetrain.tank_drive(0.0, 0.0)?;
-        Ok(())
     }
 
-    async fn driver(&mut self) -> Result<(), Box<dyn Error>> {
-        loop {
-            let drive = self.controller.left_stick.y().unwrap_or_default() as f64;
-            let rotate = self.controller.right_stick.x().unwrap_or_default() as f64;
-
-            self.drivetrain.arcade_drive(drive, rotate)?;
-
-            sleep(Duration::from_millis(20)).await;
-        }
+    async fn driver(&mut self) {
+        self.drivetrain
+            .run(TankDrive {
+                controller: &mut self.controller,
+            })
+            .await;
     }
 }
 
-#[vexide::main]
+#[vexide::main(banner = false)]
 async fn main(peripherals: Peripherals) -> Result<(), Box<dyn Error>> {
     let robot = Robot::new(peripherals)?;
-    robot.compete().await?;
+    robot.compete().await;
     Ok(())
 }
