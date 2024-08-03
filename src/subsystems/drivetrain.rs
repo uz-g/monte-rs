@@ -31,11 +31,11 @@ impl Subsystem<(f32, f32)> for Drivetrain {
 }
 
 pub struct TankDrive<'a> {
-    controller: &'a mut Controller,
+    controller: &'a Controller,
 }
 
 impl<'a> TankDrive<'a> {
-    pub fn new(controller: &'a mut Controller) -> Self {
+    pub fn new(controller: &'a Controller) -> Self {
         TankDrive { controller }
     }
 }

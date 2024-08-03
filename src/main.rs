@@ -1,12 +1,14 @@
 #![no_main]
 #![no_std]
+#![feature(future_join)]
 
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::{error::Error, time::Duration};
+use core::{error::Error, future::join, time::Duration};
 
 use state_machine::Subsystem;
+use subsystems::lift::{Lift, TeleopArm};
 use vexide::prelude::*;
 
 mod state_machine;
@@ -16,6 +18,7 @@ use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
 
 struct Robot {
     drivetrain: Drivetrain,
+    lift: Lift,
     controller: Controller,
 }
 
@@ -24,8 +27,13 @@ impl Robot {
         Ok(Self {
             drivetrain: Drivetrain::new(
                 Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_2, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward),
             ),
+            lift: Lift::new(Motor::new(
+                peripherals.port_2,
+                Gearset::Green,
+                Direction::Forward,
+            )),
             controller: peripherals.primary_controller,
         })
     }
@@ -37,13 +45,17 @@ impl Compete for Robot {
     }
 
     async fn driver(&mut self) {
-        self.drivetrain
-            .run(TankDrive::new(&mut self.controller))
-            .await;
+        loop {
+            sleep(Duration::from_millis(10)).await;
+        }
+        // self.drivetrain.run(TankDrive::new(&self.controller)).await;
+        // let arm_state = self.lift.run(TeleopArm::new(&self.controller));
+
+        // join!(arm_state).await;
     }
 }
 
-#[vexide::main(banner = false)]
+#[vexide::main(banner = true)]
 async fn main(peripherals: Peripherals) -> Result<(), Box<dyn Error>> {
     let robot = Robot::new(peripherals)?;
     robot.compete().await;
