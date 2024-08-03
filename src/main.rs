@@ -23,7 +23,7 @@ impl Robot {
     fn new(peripherals: Peripherals) -> Result<Self, Box<dyn Error>> {
         Ok(Self {
             drivetrain: Drivetrain::new(
-                Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward),
                 Motor::new(peripherals.port_2, Gearset::Green, Direction::Forward),
             ),
             controller: peripherals.primary_controller,
@@ -38,9 +38,7 @@ impl Compete for Robot {
 
     async fn driver(&mut self) {
         self.drivetrain
-            .run(TankDrive {
-                controller: &mut self.controller,
-            })
+            .run(TankDrive::new(&mut self.controller))
             .await;
     }
 }
