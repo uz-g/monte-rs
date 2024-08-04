@@ -1,8 +1,9 @@
+use alloc::sync::Arc;
 use core::time::Duration;
 
-use vexide::prelude::*;
+use vexide::{core::sync::Mutex, prelude::*};
 
-use crate::state_machine::*;
+use crate::{localization::localization::ParticleFilter, state_machine::*};
 
 /// Example implementation of a drivetrain subsystem.
 pub struct Drivetrain {
@@ -23,8 +24,8 @@ impl Subsystem<(f32, f32)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<(f32, f32)>) {
         state.init().await;
         while let Some(output) = state.update().await {
-            self.left_motor.set_voltage(output.0 as f64);
-            self.right_motor.set_voltage(output.1 as f64);
+            let _ = self.left_motor.set_voltage(output.0 as f64);
+            let _ = self.right_motor.set_voltage(output.1 as f64);
 
             sleep(Duration::from_millis(10)).await;
         }
@@ -53,13 +54,19 @@ impl<'a> State<(f32, f32)> for TankDrive<'a> {
 pub struct VoltageDrive {
     left_voltage: f64,
     right_voltage: f64,
+    localization: Arc<Mutex<ParticleFilter<100>>>,
 }
 
 impl VoltageDrive {
-    pub fn new(left_voltage: f64, right_voltage: f64) -> Self {
+    pub fn new(
+        left_voltage: f64,
+        right_voltage: f64,
+        localization: Arc<Mutex<ParticleFilter<100>>>,
+    ) -> Self {
         Self {
             left_voltage,
             right_voltage,
+            localization,
         }
     }
 }

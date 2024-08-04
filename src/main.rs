@@ -4,10 +4,10 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
 use core::{future::join, time::Duration};
 
 use futures::{select_biased, FutureExt};
+use localization::localization::ParticleFilter;
 use state_machine::Subsystem;
 use subsystems::{
     drivetrain::VoltageDrive,
@@ -15,8 +15,13 @@ use subsystems::{
 };
 use vexide::prelude::*;
 
+mod localization;
 mod state_machine;
 mod subsystems;
+
+use alloc::sync::Arc;
+
+use vexide::core::sync::Mutex;
 
 use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
 
@@ -24,10 +29,13 @@ struct Robot {
     drivetrain: Drivetrain,
     lift: Lift,
     controller: Controller,
+    localization: Arc<Mutex<ParticleFilter<100>>>,
+    _localization_task: Task<()>,
 }
 
 impl Robot {
     fn new(peripherals: Peripherals) -> Self {
+        let localization = Arc::new(Mutex::new(ParticleFilter::new()));
         Self {
             drivetrain: Drivetrain::new(
                 Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward),
@@ -39,6 +47,14 @@ impl Robot {
                 Direction::Forward,
             )),
             controller: peripherals.primary_controller,
+            localization: localization.clone(),
+            _localization_task: spawn(async move {
+                loop {
+                    localization.lock().await.update().await;
+
+                    sleep(Duration::from_millis(10));
+                }
+            }),
         }
     }
 }
@@ -46,7 +62,9 @@ impl Robot {
 impl Compete for Robot {
     async fn autonomous(&mut self) {
         {
-            let drive_state = self.drivetrain.run(VoltageDrive::new(12.0, 12.0));
+            let drive_state =
+                self.drivetrain
+                    .run(VoltageDrive::new(12.0, 12.0, self.localization.clone()));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -55,7 +73,9 @@ impl Compete for Robot {
         }
 
         {
-            let drive_state = self.drivetrain.run(VoltageDrive::new(-12.0, -12.0));
+            let drive_state =
+                self.drivetrain
+                    .run(VoltageDrive::new(-12.0, -12.0, self.localization.clone()));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -63,7 +83,9 @@ impl Compete for Robot {
             };
         }
 
-        self.drivetrain.run(VoltageDrive::new(0.0, 0.0)).await;
+        self.drivetrain
+            .run(VoltageDrive::new(0.0, 0.0, self.localization.clone()))
+            .await;
     }
 
     async fn driver(&mut self) {

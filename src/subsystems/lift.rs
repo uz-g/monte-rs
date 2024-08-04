@@ -41,7 +41,7 @@ impl<'a> State<f64> for TeleopArm<'a> {
         let mut power = 0.0;
 
         if let Ok(pressed) = self.controller.right_trigger_1.is_pressed() {
-            if (pressed) {
+            if pressed {
                 power += 12.0;
             }
         } else {
@@ -49,7 +49,7 @@ impl<'a> State<f64> for TeleopArm<'a> {
         }
 
         if let Ok(pressed) = self.controller.right_trigger_2.is_pressed() {
-            if (pressed) {
+            if pressed {
                 power -= 12.0;
             }
         } else {
