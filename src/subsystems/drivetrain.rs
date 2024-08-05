@@ -3,7 +3,7 @@ use core::time::Duration;
 
 use vexide::{core::sync::Mutex, prelude::*};
 
-use crate::{localization::localization::ParticleFilter, state_machine::*};
+use crate::{localization::localization::particle_filter::ParticleFilter, state_machine::*};
 
 /// Example implementation of a drivetrain subsystem.
 pub struct Drivetrain {
@@ -20,8 +20,8 @@ impl Drivetrain {
     }
 }
 
-impl Subsystem<(f32, f32)> for Drivetrain {
-    async fn run(&mut self, mut state: impl State<(f32, f32)>) {
+impl Subsystem<(f64, f64)> for Drivetrain {
+    async fn run(&mut self, mut state: impl State<(f64, f64)>) {
         state.init().await;
         while let Some(output) = state.update().await {
             let _ = self.left_motor.set_voltage(output.0 as f64);
@@ -42,11 +42,11 @@ impl<'a> TankDrive<'a> {
     }
 }
 
-impl<'a> State<(f32, f32)> for TankDrive<'a> {
-    async fn update(&mut self) -> Option<(f32, f32)> {
+impl<'a> State<(f64, f64)> for TankDrive<'a> {
+    async fn update(&mut self) -> Option<(f64, f64)> {
         Some((
-            self.controller.left_stick.y().ok()? * 12.0,
-            self.controller.right_stick.y().ok()? * 12.0,
+            self.controller.left_stick.y().ok()? as f64 * 12.0,
+            self.controller.right_stick.y().ok()? as f64 * 12.0,
         ))
     }
 }
@@ -71,8 +71,8 @@ impl VoltageDrive {
     }
 }
 
-impl State<(f32, f32)> for VoltageDrive {
-    async fn update(&mut self) -> Option<(f32, f32)> {
-        Some((self.left_voltage as f32, self.right_voltage as f32))
+impl State<(f64, f64)> for VoltageDrive {
+    async fn update(&mut self) -> Option<(f64, f64)> {
+        Some((self.left_voltage as f64, self.right_voltage as f64))
     }
 }

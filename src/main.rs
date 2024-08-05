@@ -7,7 +7,8 @@ extern crate alloc;
 use core::{future::join, time::Duration};
 
 use futures::{select_biased, FutureExt};
-use localization::localization::ParticleFilter;
+use localization::localization::{particle_filter::ParticleFilter, Localization};
+use sensor::orientation::Orientation;
 use state_machine::Subsystem;
 use subsystems::{
     drivetrain::VoltageDrive,
@@ -16,8 +17,12 @@ use subsystems::{
 use vexide::prelude::*;
 
 mod localization;
+mod sensor;
 mod state_machine;
 mod subsystems;
+mod actuator;
+
+extern crate uom;
 
 use alloc::sync::Arc;
 
@@ -25,17 +30,21 @@ use vexide::core::sync::Mutex;
 
 use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
 
+const NUM_PARTICLES: usize = 100;
+
 struct Robot {
     drivetrain: Drivetrain,
     lift: Lift,
     controller: Controller,
-    localization: Arc<Mutex<ParticleFilter<100>>>,
+    localization: Arc<Mutex<ParticleFilter<NUM_PARTICLES>>>,
+    imu: Arc<InertialSensor>,
     _localization_task: Task<()>,
 }
 
 impl Robot {
     fn new(peripherals: Peripherals) -> Self {
-        let localization = Arc::new(Mutex::new(ParticleFilter::new()));
+        let imu = Arc::new(InertialSensor::new(peripherals.port_14));
+        let localization = Arc::new(Mutex::new(ParticleFilter::new(imu.clone(), )));
         Self {
             drivetrain: Drivetrain::new(
                 Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward),
@@ -50,11 +59,12 @@ impl Robot {
             localization: localization.clone(),
             _localization_task: spawn(async move {
                 loop {
-                    localization.lock().await.update().await;
+                    localization.lock().await.update();
 
                     sleep(Duration::from_millis(10));
                 }
             }),
+            imu,
         }
     }
 }
