@@ -21,7 +21,6 @@ nalgebra = { version = "0.33.0", default-features = false, features = [
     "macros",
 ] }
 vexide = "0.3.0"
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 rand = { version = "0.8.5", default-features = false, features = ["small_rng", "alloc"] }
 uom = { version = "0.36.0", default-features = false, features = ["f64", "si"] }
 rand_distr = { version = "0.4.3", default-features = false, features = ["alloc"] }

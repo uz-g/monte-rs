@@ -1,5 +1,7 @@
 use alloc::sync::Arc;
+
 use vexide::core::sync::Mutex;
+
 use crate::actuator::motor_group::MotorGroup;
 
 pub trait RotarySensor {

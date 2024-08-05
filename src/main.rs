@@ -4,8 +4,8 @@
 
 extern crate alloc;
 
-use core::{future::join, time::Duration};
 use alloc::sync::Arc;
+use core::{future::join, time::Duration};
 
 use futures::{select_biased, FutureExt};
 use state_machine::Subsystem;
@@ -15,19 +15,23 @@ use subsystems::{
 };
 use vexide::prelude::*;
 
+mod actuator;
+mod config;
 mod localization;
 mod sensor;
 mod state_machine;
 mod subsystems;
-mod actuator;
-mod config;
 
 extern crate uom;
 
 use alloc::vec;
+
 use vexide::core::sync::Mutex;
-use crate::actuator::motor_group::MotorGroup;
-use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
+
+use crate::{
+    actuator::motor_group::MotorGroup,
+    subsystems::drivetrain::{Drivetrain, TankDrive},
+};
 
 struct Robot {
     drivetrain: Drivetrain,
@@ -37,10 +41,17 @@ struct Robot {
 
 impl Robot {
     fn new(peripherals: Peripherals) -> Self {
-
         let drivetrain = Drivetrain::new(
-            Arc::new(Mutex::new(MotorGroup::new(vec!(Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward))))),
-            Arc::new(Mutex::new(MotorGroup::new(vec!(Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward))))),
+            Arc::new(Mutex::new(MotorGroup::new(vec![Motor::new(
+                peripherals.port_12,
+                Gearset::Green,
+                Direction::Forward,
+            )]))),
+            Arc::new(Mutex::new(MotorGroup::new(vec![Motor::new(
+                peripherals.port_1,
+                Gearset::Green,
+                Direction::Forward,
+            )]))),
             InertialSensor::new(peripherals.port_5),
         );
         Self {
@@ -58,9 +69,7 @@ impl Robot {
 impl Compete for Robot {
     async fn autonomous(&mut self) {
         {
-            let drive_state =
-                self.drivetrain
-                    .run(VoltageDrive::new(12.0, 12.0));
+            let drive_state = self.drivetrain.run(VoltageDrive::new(12.0, 12.0));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -69,9 +78,7 @@ impl Compete for Robot {
         }
 
         {
-            let drive_state =
-                self.drivetrain
-                    .run(VoltageDrive::new(-12.0, -12.0));
+            let drive_state = self.drivetrain.run(VoltageDrive::new(-12.0, -12.0));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -79,9 +86,7 @@ impl Compete for Robot {
             };
         }
 
-        self.drivetrain
-            .run(VoltageDrive::new(0.0, 0.0))
-            .await;
+        self.drivetrain.run(VoltageDrive::new(0.0, 0.0)).await;
     }
 
     async fn driver(&mut self) {

@@ -1,15 +1,21 @@
 use alloc::sync::Arc;
-use core::ops::Add;
-use core::time::Duration;
+use core::{ops::Add, time::Duration};
 
-use vexide::{core::sync::Mutex, prelude::*};
-use vexide::core::time::Instant;
-use crate::{localization::localization::particle_filter::ParticleFilter, state_machine::*};
-use crate::actuator::motor_group::MotorGroup;
-use crate::localization::localization::{Localization, StateRepresentation};
-use crate::localization::predict::tank_pose_tracking::TankPoseTracking;
-use crate::sensor::rotary::TrackingWheel;
-use crate::config::NUM_PARTICLES;
+use vexide::{
+    core::{sync::Mutex, time::Instant},
+    prelude::*,
+};
+
+use crate::{
+    actuator::motor_group::MotorGroup,
+    config::NUM_PARTICLES,
+    localization::{
+        localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
+        predict::tank_pose_tracking::TankPoseTracking,
+    },
+    sensor::rotary::TrackingWheel,
+    state_machine::*,
+};
 
 /// Example implementation of a drivetrain subsystem.
 pub struct Drivetrain {
@@ -20,11 +26,16 @@ pub struct Drivetrain {
 }
 
 impl Drivetrain {
-    pub fn new(left_motor: Arc<Mutex<MotorGroup>>, right_motor: Arc<Mutex<MotorGroup>>, imu: InertialSensor) -> Self {
-        let localization = Arc::new(Mutex::new(ParticleFilter::new(
-            TankPoseTracking::new(
-                TrackingWheel::new(left_motor.clone(), 1.0, None),
-                TrackingWheel::new(right_motor.clone(), 1.0, None), imu))));
+    pub fn new(
+        left_motor: Arc<Mutex<MotorGroup>>,
+        right_motor: Arc<Mutex<MotorGroup>>,
+        imu: InertialSensor,
+    ) -> Self {
+        let localization = Arc::new(Mutex::new(ParticleFilter::new(TankPoseTracking::new(
+            TrackingWheel::new(left_motor.clone(), 1.0, None),
+            TrackingWheel::new(right_motor.clone(), 1.0, None),
+            imu,
+        ))));
         Self {
             localization: localization.clone(),
             _localization_task: spawn(async move {
@@ -45,7 +56,10 @@ impl Drivetrain {
 impl Subsystem<StateRepresentation, (f64, f64)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
         state.init().await;
-        while let Some(output) = state.update(self.localization.lock().await.pose_estimate()).await {
+        while let Some(output) = state
+            .update(self.localization.lock().await.pose_estimate())
+            .await
+        {
             let now = Instant::now();
 
             let _ = self.left_motor.lock().await.set_voltage(output.0);
@@ -81,10 +95,7 @@ pub struct VoltageDrive {
 }
 
 impl VoltageDrive {
-    pub fn new(
-        left_voltage: f64,
-        right_voltage: f64,
-    ) -> Self {
+    pub fn new(left_voltage: f64, right_voltage: f64) -> Self {
         Self {
             left_voltage,
             right_voltage,

@@ -1,15 +1,14 @@
 use alloc::vec::Vec;
+
 use vexide::prelude::Motor;
 
 pub struct MotorGroup {
-    motors: Vec<Motor>
+    motors: Vec<Motor>,
 }
 
 impl MotorGroup {
     pub fn new(motors: Vec<Motor>) -> Self {
-        Self {
-            motors
-        }
+        Self { motors }
     }
 
     pub fn set_voltage(&mut self, voltage: f64) {
@@ -19,6 +18,9 @@ impl MotorGroup {
     }
 
     pub fn position(&self) -> f64 {
-        self.motors.iter().filter_map(|motor| motor.position().map(|x| x.as_radians()).ok()).sum()
+        self.motors
+            .iter()
+            .filter_map(|motor| motor.position().map(|x| x.as_radians()).ok())
+            .sum()
     }
 }

@@ -1,6 +1,6 @@
 use core::time::Duration;
-use vexide::devices::smart::motor::MotorError;
-use vexide::prelude::*;
+
+use vexide::{devices::smart::motor::MotorError, prelude::*};
 
 use crate::state_machine::{State, Subsystem};
 
@@ -15,7 +15,10 @@ impl Lift {
 }
 
 impl Subsystem<Result<Position, MotorError>, f64> for Lift {
-    async fn run(&mut self, mut state: impl crate::state_machine::State<Result<Position, MotorError>, f64>) {
+    async fn run(
+        &mut self,
+        mut state: impl crate::state_machine::State<Result<Position, MotorError>, f64>,
+    ) {
         state.init().await;
 
         while let Some(output) = state.update(self.motor.position()).await {

@@ -1,10 +1,12 @@
-use alloc::{boxed::Box, vec::Vec};
-use alloc::sync::Arc;
-use rand::{distributions::Uniform, Rng, rngs::SmallRng, SeedableRng};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
+
+use rand::{distributions::Uniform, rngs::SmallRng, Rng, SeedableRng};
 use vexide::core::sync::Mutex;
-use crate::actuator::motor_group::MotorGroup;
-use crate::localization::predict::tank_pose_tracking::TankPoseTracking;
+
 use super::{Localization, Sensor, StateRepresentation};
+use crate::{
+    actuator::motor_group::MotorGroup, localization::predict::tank_pose_tracking::TankPoseTracking,
+};
 
 pub struct ParticleFilter<const D: usize> {
     particles: [StateRepresentation; D],
