@@ -1,4 +1,3 @@
-use nalgebra::Vector3;
 use vexide::prelude::DistanceSensor;
 
 use crate::localization::localization::StateRepresentation;
@@ -8,7 +7,7 @@ pub trait Sensor {
 }
 
 impl Sensor for DistanceSensor {
-    fn p(&self, x: &StateRepresentation) -> Option<f64> {
+    fn p(&self, _x: &StateRepresentation) -> Option<f64> {
         todo!();
     }
 }

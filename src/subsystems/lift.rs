@@ -1,5 +1,5 @@
 use core::time::Duration;
-
+use vexide::devices::smart::motor::MotorError;
 use vexide::prelude::*;
 
 use crate::state_machine::{State, Subsystem};
@@ -14,11 +14,11 @@ impl Lift {
     }
 }
 
-impl Subsystem<f64> for Lift {
-    async fn run(&mut self, mut state: impl crate::state_machine::State<f64>) {
+impl Subsystem<Result<Position, MotorError>, f64> for Lift {
+    async fn run(&mut self, mut state: impl crate::state_machine::State<Result<Position, MotorError>, f64>) {
         state.init().await;
 
-        while let Some(output) = state.update().await {
+        while let Some(output) = state.update(self.motor.position()).await {
             let _ = self.motor.set_voltage(output as f64);
 
             sleep(Duration::from_millis(10)).await;
@@ -36,8 +36,8 @@ impl<'a> TeleopArm<'a> {
     }
 }
 
-impl<'a> State<f64> for TeleopArm<'a> {
-    async fn update(&mut self) -> Option<f64> {
+impl<'a> State<Result<Position, MotorError>, f64> for TeleopArm<'a> {
+    async fn update(&mut self, _: Result<Position, MotorError>) -> Option<f64> {
         let mut power = 0.0;
 
         if let Ok(pressed) = self.controller.right_trigger_1.is_pressed() {

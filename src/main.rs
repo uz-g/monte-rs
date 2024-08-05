@@ -5,10 +5,9 @@
 extern crate alloc;
 
 use core::{future::join, time::Duration};
+use alloc::sync::Arc;
 
 use futures::{select_biased, FutureExt};
-use localization::localization::{particle_filter::ParticleFilter, Localization};
-use sensor::orientation::Orientation;
 use state_machine::Subsystem;
 use subsystems::{
     drivetrain::VoltageDrive,
@@ -21,50 +20,37 @@ mod sensor;
 mod state_machine;
 mod subsystems;
 mod actuator;
+mod config;
 
 extern crate uom;
 
-use alloc::sync::Arc;
-
+use alloc::vec;
 use vexide::core::sync::Mutex;
-
+use crate::actuator::motor_group::MotorGroup;
 use crate::subsystems::drivetrain::{Drivetrain, TankDrive};
-
-const NUM_PARTICLES: usize = 100;
 
 struct Robot {
     drivetrain: Drivetrain,
     lift: Lift,
     controller: Controller,
-    localization: Arc<Mutex<ParticleFilter<NUM_PARTICLES>>>,
-    imu: Arc<InertialSensor>,
-    _localization_task: Task<()>,
 }
 
 impl Robot {
     fn new(peripherals: Peripherals) -> Self {
-        let imu = Arc::new(InertialSensor::new(peripherals.port_14));
-        let localization = Arc::new(Mutex::new(ParticleFilter::new(imu.clone(), )));
+
+        let drivetrain = Drivetrain::new(
+            Arc::new(Mutex::new(MotorGroup::new(vec!(Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward))))),
+            Arc::new(Mutex::new(MotorGroup::new(vec!(Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward))))),
+            InertialSensor::new(peripherals.port_5),
+        );
         Self {
-            drivetrain: Drivetrain::new(
-                Motor::new(peripherals.port_12, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward),
-            ),
+            drivetrain,
             lift: Lift::new(Motor::new(
                 peripherals.port_2,
                 Gearset::Green,
                 Direction::Forward,
             )),
             controller: peripherals.primary_controller,
-            localization: localization.clone(),
-            _localization_task: spawn(async move {
-                loop {
-                    localization.lock().await.update();
-
-                    sleep(Duration::from_millis(10));
-                }
-            }),
-            imu,
         }
     }
 }
@@ -74,7 +60,7 @@ impl Compete for Robot {
         {
             let drive_state =
                 self.drivetrain
-                    .run(VoltageDrive::new(12.0, 12.0, self.localization.clone()));
+                    .run(VoltageDrive::new(12.0, 12.0));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -85,7 +71,7 @@ impl Compete for Robot {
         {
             let drive_state =
                 self.drivetrain
-                    .run(VoltageDrive::new(-12.0, -12.0, self.localization.clone()));
+                    .run(VoltageDrive::new(-12.0, -12.0));
 
             let _ = select_biased! {
                 () = drive_state.fuse() => 1,
@@ -94,7 +80,7 @@ impl Compete for Robot {
         }
 
         self.drivetrain
-            .run(VoltageDrive::new(0.0, 0.0, self.localization.clone()))
+            .run(VoltageDrive::new(0.0, 0.0))
             .await;
     }
 

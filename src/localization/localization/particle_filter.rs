@@ -1,25 +1,24 @@
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
-
-use rand::{distributions::Uniform, rngs::SmallRng, Rng, SeedableRng};
-use crate::localization::predict::Predict;
+use alloc::{boxed::Box, vec::Vec};
+use alloc::sync::Arc;
+use rand::{distributions::Uniform, Rng, rngs::SmallRng, SeedableRng};
+use vexide::core::sync::Mutex;
+use crate::actuator::motor_group::MotorGroup;
+use crate::localization::predict::tank_pose_tracking::TankPoseTracking;
 use super::{Localization, Sensor, StateRepresentation};
-use crate::sensor::orientation::Orientation;
 
 pub struct ParticleFilter<const D: usize> {
     particles: [StateRepresentation; D],
     sensors: Vec<Box<dyn Sensor>>,
-    predictor: Box<dyn Predict>,
-    orientation: Arc<dyn Orientation>,
+    predictor: TankPoseTracking<Arc<Mutex<MotorGroup>>>,
     rng: SmallRng,
 }
 
 impl<const D: usize> ParticleFilter<D> {
-    pub fn new(orientation: Arc<dyn Orientation>, predictor: impl Predict + 'static) -> Self {
+    pub fn new(predictor: TankPoseTracking<Arc<Mutex<MotorGroup>>>) -> Self {
         Self {
             particles: [StateRepresentation::new(0.0, 0.0, 0.0); D],
             sensors: Vec::new(),
-            orientation,
-            predictor: Box::new(predictor),
+            predictor,
             rng: SmallRng::seed_from_u64(0),
         }
     }
@@ -30,13 +29,15 @@ impl<const D: usize> Localization for ParticleFilter<D> {
         self.particles.iter().sum::<StateRepresentation>() / D as f64
     }
 
-    fn update(&mut self) {
-        self.predictor.update();
+    async fn update(&mut self) {
+        self.predictor.update().await;
+
+        let orientation = self.predictor.orientation().angle();
 
         // Predict step
         for mut particle in self.particles {
             particle += self.predictor.predict();
-            particle.z = self.orientation.get_orientation().unwrap_or_default().angle();
+            particle.z = orientation;
         }
 
         // Update step
