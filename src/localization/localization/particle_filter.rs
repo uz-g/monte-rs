@@ -1,7 +1,9 @@
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use core::time::Duration;
 
 use rand::{distributions::Uniform, rngs::SmallRng, Rng, SeedableRng};
-use vexide::core::sync::Mutex;
+use uom::si::{f64::Length, length::meter};
+use vexide::core::{sync::Mutex, time::Instant};
 
 use super::{Localization, Sensor, StateRepresentation};
 use crate::{
@@ -13,15 +15,27 @@ pub struct ParticleFilter<const D: usize> {
     sensors: Vec<Box<dyn Sensor>>,
     predictor: TankPoseTracking<Arc<Mutex<MotorGroup>>>,
     rng: SmallRng,
+    last_update_time: Instant,
+    dist_since_update: f64,
+    min_update_interval: Duration,
+    min_update_distance: Length,
 }
 
 impl<const D: usize> ParticleFilter<D> {
-    pub fn new(predictor: TankPoseTracking<Arc<Mutex<MotorGroup>>>) -> Self {
+    pub fn new(
+        predictor: TankPoseTracking<Arc<Mutex<MotorGroup>>>,
+        min_update_interval: Duration,
+        min_update_distance: Length,
+    ) -> Self {
         Self {
             particles: [StateRepresentation::new(0.0, 0.0, 0.0); D],
             sensors: Vec::new(),
             predictor,
             rng: SmallRng::seed_from_u64(0),
+            last_update_time: Instant::now(),
+            dist_since_update: 0.0,
+            min_update_interval,
+            min_update_distance,
         }
     }
 }
@@ -40,6 +54,14 @@ impl<const D: usize> Localization for ParticleFilter<D> {
         for mut particle in self.particles {
             particle += self.predictor.predict();
             particle.z = orientation;
+        }
+
+        self.dist_since_update += self.predictor.predict().magnitude();
+
+        if self.dist_since_update < self.min_update_distance.get::<meter>()
+            && self.min_update_interval > Instant::now() - self.last_update_time
+        {
+            return;
         }
 
         // Update step
@@ -75,5 +97,7 @@ impl<const D: usize> Localization for ParticleFilter<D> {
 
             sum += sample_rand;
         }
+
+        self.last_update_time = Instant::now();
     }
 }

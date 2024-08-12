@@ -1,5 +1,6 @@
 use alloc::sync::Arc;
 
+use uom::si::{f64::Length, length::meter};
 use vexide::core::sync::Mutex;
 
 use crate::actuator::motor_group::MotorGroup;
@@ -16,25 +17,23 @@ impl RotarySensor for Arc<Mutex<MotorGroup>> {
 
 pub struct TrackingWheel<T: RotarySensor> {
     sensor: T,
-    // offset: f64,
-    diameter: f64,
+    diameter: Length,
     gearing: Option<f64>,
     last_length: f64,
 }
 
 impl<T: RotarySensor> TrackingWheel<T> {
-    pub fn new(sensor: T, diameter: f64, gearing: Option<f64>) -> Self {
+    pub fn new(sensor: T, diameter: Length, gearing: Option<f64>) -> Self {
         Self {
             sensor,
             diameter,
-            // offset,
             gearing,
             last_length: 0.0,
         }
     }
 
     pub async fn travel(&self) -> f64 {
-        self.sensor.pos().await * self.diameter * self.gearing.unwrap_or(1.0)
+        self.sensor.pos().await * self.diameter.get::<meter>() * self.gearing.unwrap_or(1.0)
     }
 
     pub async fn update(&mut self) -> f64 {

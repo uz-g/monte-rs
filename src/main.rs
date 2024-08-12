@@ -30,6 +30,7 @@ use vexide::core::sync::Mutex;
 
 use crate::{
     actuator::motor_group::MotorGroup,
+    config::{wheel_diameter, DRIVE_RATIO},
     subsystems::drivetrain::{Drivetrain, TankDrive},
 };
 
@@ -53,6 +54,8 @@ impl Robot {
                 Direction::Forward,
             )]))),
             InertialSensor::new(peripherals.port_5),
+            wheel_diameter(),
+            DRIVE_RATIO,
         );
         Self {
             drivetrain,
@@ -68,15 +71,6 @@ impl Robot {
 
 impl Compete for Robot {
     async fn autonomous(&mut self) {
-        {
-            let drive_state = self.drivetrain.run(VoltageDrive::new(12.0, 12.0));
-
-            let _ = select_biased! {
-                () = drive_state.fuse() => 1,
-                () = sleep(Duration::from_secs(2)).fuse() => 2,
-            };
-        }
-
         {
             let drive_state = self.drivetrain.run(VoltageDrive::new(-12.0, -12.0));
 

@@ -1,6 +1,7 @@
 use alloc::sync::Arc;
 use core::{ops::Add, time::Duration};
 
+use uom::si::f64::Length;
 use vexide::{
     core::{sync::Mutex, time::Instant},
     prelude::*,
@@ -8,7 +9,7 @@ use vexide::{
 
 use crate::{
     actuator::motor_group::MotorGroup,
-    config::NUM_PARTICLES,
+    config::{localization_min_update_distance, LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES},
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
         predict::tank_pose_tracking::TankPoseTracking,
@@ -30,12 +31,26 @@ impl Drivetrain {
         left_motor: Arc<Mutex<MotorGroup>>,
         right_motor: Arc<Mutex<MotorGroup>>,
         imu: InertialSensor,
+        tracking_wheel_diameter: Length,
+        drive_ratio: f64,
     ) -> Self {
-        let localization = Arc::new(Mutex::new(ParticleFilter::new(TankPoseTracking::new(
-            TrackingWheel::new(left_motor.clone(), 1.0, None),
-            TrackingWheel::new(right_motor.clone(), 1.0, None),
-            imu,
-        ))));
+        let localization = Arc::new(Mutex::new(ParticleFilter::new(
+            TankPoseTracking::new(
+                TrackingWheel::new(
+                    left_motor.clone(),
+                    tracking_wheel_diameter,
+                    Option::from(drive_ratio),
+                ),
+                TrackingWheel::new(
+                    right_motor.clone(),
+                    tracking_wheel_diameter,
+                    Option::from(drive_ratio),
+                ),
+                imu,
+            ),
+            LOCALIZATION_MIN_UPDATE_INTERVAL,
+            localization_min_update_distance(),
+        )));
         Self {
             localization: localization.clone(),
             _localization_task: spawn(async move {
