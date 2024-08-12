@@ -26,6 +26,10 @@ impl Telemetry {
         )
         .await;
     }
+
+    pub async fn send_str(&self, data: &str) {
+        self.send(data.as_bytes()).await;
+    }
 }
 
 impl Clone for Telemetry {
