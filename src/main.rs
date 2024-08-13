@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(future_join)]
+#![feature(async_closure)]
 
 extern crate alloc;
 
@@ -25,11 +26,12 @@ mod subsystems;
 extern crate uom;
 
 use alloc::vec;
+use core::ops::Add;
 
 use vexide::core::sync::Mutex;
 
 use crate::{
-    actuator::motor_group::MotorGroup,
+    actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{wheel_diameter, DRIVE_RATIO},
     subsystems::drivetrain::{Drivetrain, TankDrive},
 };
@@ -38,6 +40,7 @@ struct Robot {
     drivetrain: Drivetrain,
     lift: Lift,
     controller: Controller,
+    telemetry: Telemetry,
 }
 
 impl Robot {
@@ -60,11 +63,12 @@ impl Robot {
         Self {
             drivetrain,
             lift: Lift::new(Motor::new(
-                peripherals.port_2,
+                peripherals.port_3,
                 Gearset::Green,
                 Direction::Forward,
             )),
             controller: peripherals.primary_controller,
+            telemetry: Telemetry::new(SerialPort::open(peripherals.port_2, 115200)),
         }
     }
 }
@@ -84,10 +88,15 @@ impl Compete for Robot {
     }
 
     async fn driver(&mut self) {
-        let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
-        let arm_state = self.lift.run(TeleopArm::new(&self.controller));
+        // let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
+        // let arm_state = self.lift.run(TeleopArm::new(&self.controller));
+        loop {
+            self.telemetry.send("hello world\n".as_bytes()).await;
+            println!("hello world");
+            sleep(Duration::from_millis(10)).await;
+        }
 
-        join!(arm_state, drive_state).await;
+        // join!(arm_state, drive_state, fn_test()).await;
     }
 }
 

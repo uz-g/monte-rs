@@ -59,7 +59,7 @@ impl Drivetrain {
 
                     localization.lock().await.update().await;
 
-                    sleep_until(now.add(Duration::from_millis(10)));
+                    sleep_until(now.add(Duration::from_millis(10))).await;
                 }
             }),
             left_motor,

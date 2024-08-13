@@ -15,7 +15,8 @@ impl Telemetry {
     }
 
     pub async fn send(&self, bytes: &[u8]) {
-        self.serial.lock().await.write_all(bytes).unwrap() // TODO: fix later
+        self.serial.lock().await.write_all(bytes).unwrap(); // TODO: fix later
+        self.serial.lock().await.flush().unwrap();
     }
 
     pub async fn send_json(&self, data: impl serde::ser::Serialize) {

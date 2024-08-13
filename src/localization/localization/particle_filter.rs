@@ -3,7 +3,7 @@ use core::time::Duration;
 
 use rand::{distributions::Uniform, rngs::SmallRng, Rng, SeedableRng};
 use uom::si::{f64::Length, length::meter};
-use vexide::core::{sync::Mutex, time::Instant};
+use vexide::core::{println, sync::Mutex, time::Instant};
 
 use super::{Localization, Sensor, StateRepresentation};
 use crate::{
@@ -46,6 +46,8 @@ impl<const D: usize> Localization for ParticleFilter<D> {
     }
 
     async fn update(&mut self) {
+        println!("particle filter");
+
         self.predictor.update().await;
 
         let orientation = self.predictor.orientation().angle();
@@ -60,6 +62,7 @@ impl<const D: usize> Localization for ParticleFilter<D> {
 
         if self.dist_since_update < self.min_update_distance.get::<meter>()
             && self.min_update_interval > Instant::now() - self.last_update_time
+            || self.sensors.is_empty()
         {
             return;
         }
