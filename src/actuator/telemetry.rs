@@ -1,7 +1,12 @@
 use alloc::{string::ToString, sync::Arc};
+use core::{fmt::Debug, time::Duration};
 
 use serde_json::{json, Value};
-use vexide::{core::sync::Mutex, devices::smart::SerialPort, prelude::Write};
+use vexide::{
+    core::sync::Mutex,
+    devices::smart::SerialPort,
+    prelude::{println, sleep, Write},
+};
 
 pub struct Telemetry {
     serial: Arc<Mutex<SerialPort>>,
@@ -15,11 +20,18 @@ impl Telemetry {
     }
 
     pub async fn send(&self, bytes: &[u8]) {
-        self.serial.lock().await.write_all(bytes).unwrap(); // TODO: fix later
-        self.serial.lock().await.flush().unwrap();
+        let mut serial_lock = self.serial.lock().await;
+        for i in bytes.chunks(SerialPort::INTERNAL_BUFFER_SIZE) {
+            serial_lock.write_all(i).unwrap(); // TODO: fix later
+            serial_lock.flush().unwrap();
+            while serial_lock.available_write_bytes().unwrap() < SerialPort::INTERNAL_BUFFER_SIZE {
+                sleep(Duration::from_millis(1)).await;
+            }
+        }
     }
 
     pub async fn send_json(&self, data: impl serde::ser::Serialize) {
+        println!("{}", serde_json::to_string(&data).unwrap_or("".to_string()));
         self.send(
             serde_json::to_string(&data)
                 .unwrap_or("".to_string())

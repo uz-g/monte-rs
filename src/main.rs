@@ -2,7 +2,7 @@
 #![no_std]
 #![feature(future_join)]
 #![feature(async_closure)]
-
+#![feature(duration_millis_float)]
 extern crate alloc;
 
 use alloc::sync::Arc;
@@ -28,11 +28,13 @@ extern crate uom;
 use alloc::vec;
 use core::ops::Add;
 
-use vexide::core::sync::Mutex;
+use nalgebra::{Matrix, Matrix2, Vector2};
+use vexide::core::{io::stdout, sync::Mutex};
 
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{wheel_diameter, DRIVE_RATIO},
+    localization::sensor::DummySensor,
     subsystems::drivetrain::{Drivetrain, TankDrive},
 };
 
@@ -41,10 +43,14 @@ struct Robot {
     lift: Lift,
     controller: Controller,
     telemetry: Telemetry,
+    _telemetry_task: Task<()>,
+    screen: Screen,
 }
 
 impl Robot {
-    fn new(peripherals: Peripherals) -> Self {
+    async fn new(peripherals: Peripherals) -> Self {
+        let telemetry = Telemetry::new(SerialPort::open(peripherals.port_2, 115200));
+
         let drivetrain = Drivetrain::new(
             Arc::new(Mutex::new(MotorGroup::new(vec![Motor::new(
                 peripherals.port_12,
@@ -59,7 +65,10 @@ impl Robot {
             InertialSensor::new(peripherals.port_5),
             wheel_diameter(),
             DRIVE_RATIO,
-        );
+            telemetry.clone(),
+        )
+        .await;
+
         Self {
             drivetrain,
             lift: Lift::new(Motor::new(
@@ -68,7 +77,15 @@ impl Robot {
                 Direction::Forward,
             )),
             controller: peripherals.primary_controller,
-            telemetry: Telemetry::new(SerialPort::open(peripherals.port_2, 115200)),
+            telemetry: telemetry.clone(),
+            _telemetry_task: spawn(async move {
+                loop {
+                    telemetry.send("#test\n".as_bytes()).await;
+
+                    sleep(Duration::from_millis(50)).await;
+                }
+            }),
+            screen: peripherals.screen,
         }
     }
 }
@@ -88,20 +105,15 @@ impl Compete for Robot {
     }
 
     async fn driver(&mut self) {
-        // let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
-        // let arm_state = self.lift.run(TeleopArm::new(&self.controller));
-        loop {
-            self.telemetry.send("hello world\n".as_bytes()).await;
-            println!("hello world");
-            sleep(Duration::from_millis(10)).await;
-        }
+        let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
+        let arm_state = self.lift.run(TeleopArm::new(&self.controller));
 
-        // join!(arm_state, drive_state, fn_test()).await;
+        join!(arm_state, drive_state).await;
     }
 }
 
-#[vexide::main(banner = true)]
+#[vexide::main(banner = false)]
 async fn main(peripherals: Peripherals) {
-    let robot = Robot::new(peripherals);
+    let robot = Robot::new(peripherals).await;
     robot.compete().await;
 }

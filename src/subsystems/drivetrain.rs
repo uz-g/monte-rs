@@ -1,6 +1,13 @@
 use alloc::sync::Arc;
-use core::{ops::Add, time::Duration};
+use core::{f64::consts::PI, ops::Add, time::Duration};
 
+use nalgebra::Matrix3;
+use rand::{
+    distributions::{Distribution, Uniform},
+    rngs::SmallRng,
+    SeedableRng,
+};
+use serde_json::json;
 use uom::si::f64::Length;
 use vexide::{
     core::{sync::Mutex, time::Instant},
@@ -8,11 +15,12 @@ use vexide::{
 };
 
 use crate::{
-    actuator::motor_group::MotorGroup,
+    actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{localization_min_update_distance, LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES},
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
         predict::tank_pose_tracking::TankPoseTracking,
+        sensor::Sensor,
     },
     sensor::rotary::TrackingWheel,
     state_machine::*,
@@ -24,15 +32,17 @@ pub struct Drivetrain {
     right_motor: Arc<Mutex<MotorGroup>>,
     localization: Arc<Mutex<ParticleFilter<NUM_PARTICLES>>>,
     _localization_task: Task<()>,
+    telemetry: Telemetry,
 }
 
 impl Drivetrain {
-    pub fn new(
+    pub async fn new(
         left_motor: Arc<Mutex<MotorGroup>>,
         right_motor: Arc<Mutex<MotorGroup>>,
         imu: InertialSensor,
         tracking_wheel_diameter: Length,
         drive_ratio: f64,
+        telemetry: Telemetry,
     ) -> Self {
         let localization = Arc::new(Mutex::new(ParticleFilter::new(
             TankPoseTracking::new(
@@ -47,17 +57,29 @@ impl Drivetrain {
                     Option::from(drive_ratio),
                 ),
                 imu,
-            ),
+            )
+            .await,
             LOCALIZATION_MIN_UPDATE_INTERVAL,
             localization_min_update_distance(),
         )));
+
         Self {
             localization: localization.clone(),
+            telemetry: telemetry.clone(),
             _localization_task: spawn(async move {
                 loop {
                     let now = Instant::now();
 
-                    localization.lock().await.update().await;
+                    let mut loc = localization.lock().await;
+
+                    // loc.init_norm(&StateRepresentation::new(0.0, 0.0, 0.0), &Matrix3::identity() * 0.1);
+
+                    loc.update().await;
+
+                    telemetry.send_json(loc.get_estimates().to_vec()).await;
+                    telemetry.send("\n".as_bytes()).await;
+
+                    println!("Delay: {}", (Instant::now() - now).as_millis_f64());
 
                     sleep_until(now.add(Duration::from_millis(10))).await;
                 }
@@ -65,6 +87,10 @@ impl Drivetrain {
             left_motor,
             right_motor,
         }
+    }
+
+    pub async fn add_sensor(&self, sensor: impl Sensor + 'static) {
+        self.localization.lock().await.add_sensor(sensor);
     }
 }
 

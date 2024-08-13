@@ -5,7 +5,7 @@ use uom::si::{
     angle::{degree, radian},
     f64::Angle,
 };
-use vexide::prelude::InertialSensor;
+use vexide::prelude::{InertialSensor, SmartDevice};
 
 use crate::{
     localization::localization::StateRepresentation,
@@ -23,11 +23,12 @@ pub struct TankPoseTracking<T: RotarySensor> {
 }
 
 impl<T: RotarySensor> TankPoseTracking<T> {
-    pub fn new(
+    pub async fn new(
         left_side: TrackingWheel<T>,
         right_side: TrackingWheel<T>,
-        orientation: InertialSensor,
+        mut orientation: InertialSensor,
     ) -> Self {
+        orientation.calibrate().await.expect("Failed to calibrate");
         Self {
             left_side,
             right_side,
@@ -60,9 +61,10 @@ impl<T: RotarySensor> TankPoseTracking<T> {
         StateRepresentation::new(local.x, local.y, 0.0)
     }
 
-    pub(crate) fn orientation(&self) -> Rotation2<f64> {
+    pub fn orientation(&self) -> Rotation2<f64> {
         Rotation2::new(
-            Angle::new::<degree>(-self.orientation.heading().unwrap_or_default()).get::<radian>(),
+            Angle::new::<degree>(-self.orientation.heading().expect("Failed to read from IMU"))
+                .get::<radian>(),
         )
     }
 }

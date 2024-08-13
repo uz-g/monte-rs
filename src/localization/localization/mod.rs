@@ -1,4 +1,5 @@
 use nalgebra::Vector3;
+use serde::{Serialize, Serializer};
 
 use super::sensor::*;
 
