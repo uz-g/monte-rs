@@ -57,7 +57,7 @@ impl<const D: usize> ParticleFilter<D> {
         self.particles.clone()
     }
 
-    pub fn init_norm(&mut self, mean: &StateRepresentation, covariance: OMatrix<f64, U3, U3>) {
+    pub fn init_norm(&mut self, mean: &StateRepresentation, covariance: &Matrix3<f64>) {
         let normal_dist = Normal::new(0.0, 1.0).expect("Can't create normal dist");
 
         for particle in self.particles.iter_mut() {
@@ -98,21 +98,23 @@ impl<const D: usize> Localization for ParticleFilter<D> {
         let orientation = self.predictor.orientation().angle();
 
         // Predict step
-        for mut particle in self.particles {
-            particle += self.predictor.predict();
+        for particle in self.particles.iter_mut() {
+            let prediction = self.predictor.predict();
+            particle.x += prediction.x;
+            particle.y += prediction.y;
             particle.z = orientation;
         }
 
         self.dist_since_update += self.predictor.predict().magnitude();
 
-        if self.dist_since_update < self.min_update_distance.get::<meter>()
-            && self.min_update_interval < Instant::now() - self.last_update_time
+        if (Instant::now() - self.last_update_time) < self.min_update_interval
+            && self.dist_since_update < self.min_update_distance.get::<meter>()
             || self.sensors.is_empty()
         {
             return;
         }
 
-        println!("Update");
+        // println!("Update");
 
         // Update step
         let mut weights = [0.0; D];
@@ -122,23 +124,13 @@ impl<const D: usize> Localization for ParticleFilter<D> {
             weights[i] = self
                 .sensors
                 .iter()
-                .filter_map(|sensor| {
-                    let value = sensor.p(&particle);
-                    if let Some(item) = value {
-                        println!("{}", item);
-                    } else {
-                        println!("NONE");
-                    }
-                    value
-                })
+                .filter_map(|sensor| sensor.p(&particle))
                 .sum();
         }
 
-        println!("Weights: {:?}", weights);
-
         // Do resample
         let avg_weight = weights.iter().sum::<f64>() / weights.len() as f64;
-        let sample_rand = self.rng.sample(Uniform::new(0.0, 1.0));
+        let sample_rand = self.rng.sample(Uniform::new(0.0, avg_weight));
 
         let old_particles = self.particles.clone();
 
@@ -159,5 +151,6 @@ impl<const D: usize> Localization for ParticleFilter<D> {
         }
 
         self.last_update_time = Instant::now();
+        self.dist_since_update = 0.0;
     }
 }

@@ -1,3 +1,5 @@
+use core::f64::consts::PI;
+
 use nalgebra::{Rotation2, Vector2};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use rand_distr::Normal;
@@ -5,7 +7,10 @@ use uom::si::{
     angle::{degree, radian},
     f64::Angle,
 };
-use vexide::prelude::{InertialSensor, SmartDevice};
+use vexide::{
+    core::println,
+    prelude::{InertialSensor, SmartDevice},
+};
 
 use crate::{
     localization::localization::StateRepresentation,
@@ -49,14 +54,18 @@ impl<T: RotarySensor> TankPoseTracking<T> {
     pub fn predict(&mut self) -> StateRepresentation {
         let left_noisy = self
             .rng
-            .sample(Normal::new(self.left_delta, 0.05 * self.left_delta).unwrap());
+            .sample(Normal::new(self.left_delta, 0.1 * self.left_delta).unwrap());
         let right_noisy = self
             .rng
-            .sample(Normal::new(self.right_delta, 0.05 * self.right_delta).unwrap());
+            .sample(Normal::new(self.right_delta, 0.1 * self.right_delta).unwrap());
 
         let mean = left_noisy + right_noisy / 2.0;
 
-        let local = self.heading * Vector2::new(mean, 0.);
+        // println!("Mean: {}", mean);
+
+        let local = Rotation2::new(
+            -self.heading.angle() + self.rng.sample(Normal::new(0.0, PI / 20.0).unwrap()),
+        ) * Vector2::new(-mean, 0.0);
 
         StateRepresentation::new(local.x, local.y, 0.0)
     }

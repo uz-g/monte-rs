@@ -64,16 +64,16 @@ pub fn normal_pdf_vec2(x: &Vector2<f64>, mean: &Vector2<f64>, covariance: &Matri
 // }
 
 pub struct DummySensor {
-    pub(crate) covariance: Matrix2<f64>,
+    pub(crate) covariance: f64,
     pub(crate) mean: Vector2<f64>,
 }
 
 impl Sensor for DummySensor {
     fn p(&self, x: &StateRepresentation) -> Option<f64> {
-        Option::from(normal_pdf_vec2(
-            &Vector2::new(x.x, x.y),
-            &self.mean,
-            &self.covariance,
+        Option::from(normal_pdf(
+            (Vector2::new(x.x, x.y) - self.mean).magnitude(),
+            0.0,
+            self.covariance,
         ))
     }
 }

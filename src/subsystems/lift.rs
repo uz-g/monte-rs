@@ -21,7 +21,7 @@ impl Subsystem<Result<Position, MotorError>, f64> for Lift {
     ) {
         state.init().await;
 
-        while let Some(output) = state.update(self.motor.position()).await {
+        while let Some(output) = state.update(&self.motor.position()).await {
             let _ = self.motor.set_voltage(output as f64);
 
             sleep(Duration::from_millis(10)).await;
@@ -40,7 +40,7 @@ impl<'a> TeleopArm<'a> {
 }
 
 impl<'a> State<Result<Position, MotorError>, f64> for TeleopArm<'a> {
-    async fn update(&mut self, _: Result<Position, MotorError>) -> Option<f64> {
+    async fn update(&mut self, _: &Result<Position, MotorError>) -> Option<f64> {
         let mut power = 0.0;
 
         if let Ok(pressed) = self.controller.right_trigger_1.is_pressed() {

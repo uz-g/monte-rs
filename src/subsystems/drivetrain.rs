@@ -20,7 +20,7 @@ use crate::{
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
         predict::tank_pose_tracking::TankPoseTracking,
-        sensor::Sensor,
+        sensor::{DummySensor, Sensor},
     },
     sensor::rotary::TrackingWheel,
     state_machine::*,
@@ -63,6 +63,13 @@ impl Drivetrain {
             localization_min_update_distance(),
         )));
 
+        {
+            localization.lock().await.add_sensor(DummySensor {
+                covariance: 1.0,
+                mean: Default::default(),
+            });
+        }
+
         Self {
             localization: localization.clone(),
             telemetry: telemetry.clone(),
@@ -70,16 +77,14 @@ impl Drivetrain {
                 loop {
                     let now = Instant::now();
 
-                    let mut loc = localization.lock().await;
+                    {
+                        let mut loc = localization.lock().await;
 
-                    // loc.init_norm(&StateRepresentation::new(0.0, 0.0, 0.0), &Matrix3::identity() * 0.1);
+                        loc.update().await;
 
-                    loc.update().await;
-
-                    telemetry.send_json(loc.get_estimates().to_vec()).await;
-                    telemetry.send("\n".as_bytes()).await;
-
-                    println!("Delay: {}", (Instant::now() - now).as_millis_f64());
+                        // telemetry.send_json(loc.get_estimates().to_vec()).await;
+                        // telemetry.send("\n".as_bytes()).await;
+                    }
 
                     sleep_until(now.add(Duration::from_millis(10))).await;
                 }
@@ -89,24 +94,37 @@ impl Drivetrain {
         }
     }
 
-    pub async fn add_sensor(&self, sensor: impl Sensor + 'static) {
-        self.localization.lock().await.add_sensor(sensor);
+    pub async fn get_pose(&self) -> StateRepresentation {
+        self.localization.lock().await.pose_estimate()
+    }
+
+    pub async fn init_norm(&mut self, mean: &StateRepresentation, covariance: &Matrix3<f64>) {
+        self.localization.lock().await.init_norm(mean, covariance);
     }
 }
 
 impl Subsystem<StateRepresentation, (f64, f64)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
         state.init().await;
-        while let Some(output) = state
-            .update(self.localization.lock().await.pose_estimate())
-            .await
-        {
-            let now = Instant::now();
+        loop {
+            let mut position = Default::default();
 
-            let _ = self.left_motor.lock().await.set_voltage(output.0);
-            let _ = self.right_motor.lock().await.set_voltage(output.1);
+            {
+                // position = self.localization.lock().await.pose_estimate();
+            }
 
-            sleep_until(now.add(Duration::from_millis(10))).await;
+            if let Some(output) = state.update(&position).await {
+                let now = Instant::now();
+
+                // println!("updateD, {:?}", now);
+
+                let _ = self.left_motor.lock().await.set_voltage(output.0);
+                let _ = self.right_motor.lock().await.set_voltage(output.1);
+
+                sleep_until(now.add(Duration::from_millis(10))).await;
+            } else {
+                return;
+            }
         }
     }
 }
@@ -122,7 +140,7 @@ impl<'a> TankDrive<'a> {
 }
 
 impl<'a> State<StateRepresentation, (f64, f64)> for TankDrive<'a> {
-    async fn update(&mut self, _: StateRepresentation) -> Option<(f64, f64)> {
+    async fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
         Some((
             self.controller.left_stick.y().ok()? as f64 * 12.0,
             self.controller.right_stick.y().ok()? as f64 * 12.0,
@@ -145,7 +163,7 @@ impl VoltageDrive {
 }
 
 impl State<StateRepresentation, (f64, f64)> for VoltageDrive {
-    async fn update(&mut self, _: StateRepresentation) -> Option<(f64, f64)> {
+    async fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
         Some((self.left_voltage as f64, self.right_voltage as f64))
     }
 }

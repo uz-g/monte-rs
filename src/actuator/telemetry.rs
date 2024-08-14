@@ -22,16 +22,16 @@ impl Telemetry {
     pub async fn send(&self, bytes: &[u8]) {
         let mut serial_lock = self.serial.lock().await;
         for i in bytes.chunks(SerialPort::INTERNAL_BUFFER_SIZE) {
-            serial_lock.write_all(i).unwrap(); // TODO: fix later
-            serial_lock.flush().unwrap();
             while serial_lock.available_write_bytes().unwrap() < SerialPort::INTERNAL_BUFFER_SIZE {
                 sleep(Duration::from_millis(1)).await;
             }
+            serial_lock.write_all(i).unwrap(); // TODO: fix later
+            serial_lock.flush().unwrap();
         }
     }
 
     pub async fn send_json(&self, data: impl serde::ser::Serialize) {
-        println!("{}", serde_json::to_string(&data).unwrap_or("".to_string()));
+        // println!("{}", serde_json::to_string(&data).unwrap_or("".to_string()));
         self.send(
             serde_json::to_string(&data)
                 .unwrap_or("".to_string())
