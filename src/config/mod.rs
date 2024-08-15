@@ -1,7 +1,8 @@
-use core::time::Duration;
+use core::{f64::consts::PI, time::Duration};
 
 use uom::si::{f64::Length, length::inch};
 
+pub const TELEMETRY_ENABLED: bool = false;
 pub const NUM_PARTICLES: usize = 100;
 
 pub fn wheel_diameter() -> Length {
@@ -17,3 +18,6 @@ pub fn localization_min_update_distance() -> Length {
 }
 
 pub const FIELD_MAX: f64 = 1.783;
+
+pub const ANGLE_NOISE: f64 = PI / 20.0;
+pub const DRIVE_NOISE: f64 = 0.1;

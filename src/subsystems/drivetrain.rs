@@ -1,13 +1,7 @@
 use alloc::sync::Arc;
-use core::{f64::consts::PI, ops::Add, time::Duration};
+use core::{ops::Add, time::Duration};
 
 use nalgebra::Matrix3;
-use rand::{
-    distributions::{Distribution, Uniform},
-    rngs::SmallRng,
-    SeedableRng,
-};
-use serde_json::json;
 use uom::si::f64::Length;
 use vexide::{
     core::{sync::Mutex, time::Instant},
@@ -16,11 +10,14 @@ use vexide::{
 
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
-    config::{localization_min_update_distance, LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES},
+    config::{
+        localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE,
+        LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES, TELEMETRY_ENABLED,
+    },
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
         predict::tank_pose_tracking::TankPoseTracking,
-        sensor::{DummySensor, Sensor},
+        sensor::DummySensor,
     },
     sensor::rotary::TrackingWheel,
     state_machine::*,
@@ -57,6 +54,8 @@ impl Drivetrain {
                     Option::from(drive_ratio),
                 ),
                 imu,
+                DRIVE_NOISE,
+                ANGLE_NOISE,
             )
             .await,
             LOCALIZATION_MIN_UPDATE_INTERVAL,
@@ -82,8 +81,10 @@ impl Drivetrain {
 
                         loc.update().await;
 
-                        // telemetry.send_json(loc.get_estimates().to_vec()).await;
-                        // telemetry.send("\n".as_bytes()).await;
+                        if TELEMETRY_ENABLED {
+                            telemetry.send_json(loc.get_estimates().to_vec()).await;
+                            telemetry.send("\n".as_bytes()).await;
+                        }
                     }
 
                     sleep_until(now.add(Duration::from_millis(10))).await;

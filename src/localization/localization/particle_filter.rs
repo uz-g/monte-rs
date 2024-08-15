@@ -107,6 +107,7 @@ impl<const D: usize> Localization for ParticleFilter<D> {
 
         self.dist_since_update += self.predictor.predict().magnitude();
 
+        // Only run if it's been longer than the minimum time or moved more than 2 inches
         if (Instant::now() - self.last_update_time) < self.min_update_interval
             && self.dist_since_update < self.min_update_distance.get::<meter>()
             || self.sensors.is_empty()
@@ -128,26 +129,32 @@ impl<const D: usize> Localization for ParticleFilter<D> {
                 .sum();
         }
 
-        // Do resample
+        // Calculate average weight and random variable for resample
         let avg_weight = weights.iter().sum::<f64>() / weights.len() as f64;
         let sample_rand = self.rng.sample(Uniform::new(0.0, avg_weight));
 
+        // Clone the particles to be memory safe with resample
         let old_particles = self.particles.clone();
 
         let mut sum = sample_rand;
 
+        // Sample an adequate number of points
         for i in 0..weights.len() {
+            // Start with a sum and index for the while loop
             let mut weight_sum = weights[0];
             let mut particle_index = 0;
 
+            // Increase until it gets to the right index
             while weight_sum < sum && particle_index < weights.len() {
                 particle_index += 1;
                 weight_sum += weights[particle_index];
             }
 
+            // Resample the particle
             self.particles[i] = old_particles[particle_index];
 
-            sum += sample_rand;
+            // Increase the sum
+            sum += avg_weight;
         }
 
         self.last_update_time = Instant::now();
