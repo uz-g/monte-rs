@@ -1,8 +1,7 @@
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use core::{f64::consts::PI, time::Duration};
+use core::time::Duration;
 
-use arr_macro::arr;
-use nalgebra::{clamp, Matrix3, OMatrix, U3};
+use nalgebra::{clamp, Matrix3};
 use rand::{
     distributions::{Distribution, Uniform},
     rngs::SmallRng,
@@ -10,12 +9,12 @@ use rand::{
 };
 use rand_distr::Normal;
 use uom::si::{f64::Length, length::meter};
-use vexide::core::{println, sync::Mutex, time::Instant};
+use vexide::core::{sync::Mutex, time::Instant};
 
 use super::{Localization, Sensor, StateRepresentation};
 use crate::{
     actuator::motor_group::MotorGroup, config::FIELD_MAX,
-    localization::predict::tank_pose_tracking::TankPoseTracking, state_machine::State,
+    localization::predict::tank_pose_tracking::TankPoseTracking,
 };
 
 pub struct ParticleFilter<const D: usize> {
@@ -35,7 +34,7 @@ impl<const D: usize> ParticleFilter<D> {
         min_update_interval: Duration,
         min_update_distance: Length,
     ) -> Self {
-        let mut rng = SmallRng::seed_from_u64(0);
+        let rng = SmallRng::seed_from_u64(0);
 
         Self {
             particles: [StateRepresentation::new(0.0, 0.0, 0.0); D],
@@ -139,7 +138,7 @@ impl<const D: usize> Localization for ParticleFilter<D> {
         let mut sum = sample_rand;
 
         // Sample an adequate number of points
-        for i in 0..weights.len() {
+        for i in 0..D {
             // Start with a sum and index for the while loop
             let mut weight_sum = weights[0];
             let mut particle_index = 0;

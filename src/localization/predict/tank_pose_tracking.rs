@@ -1,5 +1,3 @@
-use core::f64::consts::PI;
-
 use nalgebra::{Rotation2, Vector2};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use rand_distr::Normal;

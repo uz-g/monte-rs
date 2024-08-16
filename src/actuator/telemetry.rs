@@ -1,11 +1,10 @@
 use alloc::{string::ToString, sync::Arc};
-use core::{fmt::Debug, time::Duration};
+use core::time::Duration;
 
-use serde_json::{json, Value};
 use vexide::{
     core::sync::Mutex,
     devices::smart::SerialPort,
-    prelude::{println, sleep, Write},
+    prelude::{sleep, Write},
 };
 
 pub struct Telemetry {

@@ -4,17 +4,30 @@
 #![feature(async_closure)]
 #![feature(duration_millis_float)]
 extern crate alloc;
+extern crate uom;
 
-use alloc::{ffi::CString, sync::Arc};
+use alloc::{ffi::CString, format, sync::Arc, vec};
 use core::{future::join, time::Duration};
 
 use futures::{select_biased, FutureExt};
+use nalgebra::Matrix3;
 use state_machine::Subsystem;
 use subsystems::{
     drivetrain::VoltageDrive,
     lift::{Lift, TeleopArm},
 };
-use vexide::prelude::*;
+use vexide::{
+    core::sync::Mutex,
+    devices::screen::{Text, TextSize},
+    prelude::*,
+};
+
+use crate::{
+    actuator::{motor_group::MotorGroup, telemetry::Telemetry},
+    config::{wheel_diameter, DRIVE_RATIO},
+    localization::localization::StateRepresentation,
+    subsystems::drivetrain::{Drivetrain, TankDrive},
+};
 
 mod actuator;
 mod config;
@@ -22,27 +35,7 @@ mod localization;
 mod sensor;
 mod state_machine;
 mod subsystems;
-
-extern crate uom;
-
-use alloc::{format, vec};
-use core::ops::Add;
-
-use nalgebra::{Matrix, Matrix2, Matrix3, Vector2};
-use vexide::{
-    core::{io::stdout, sync::Mutex, time::Instant},
-    devices::{
-        screen::{Text, TextSize},
-        smart::SmartDeviceType,
-    },
-};
-
-use crate::{
-    actuator::{motor_group::MotorGroup, telemetry::Telemetry},
-    config::{wheel_diameter, DRIVE_RATIO},
-    localization::{localization::StateRepresentation, sensor::DummySensor},
-    subsystems::drivetrain::{Drivetrain, TankDrive},
-};
+mod utils;
 
 struct Robot {
     drivetrain: Drivetrain,

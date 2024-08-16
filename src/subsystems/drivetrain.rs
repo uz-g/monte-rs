@@ -64,9 +64,13 @@ impl Drivetrain {
 
         {
             localization.lock().await.add_sensor(DummySensor {
-                covariance: 1.0,
+                covariance: 0.5,
                 mean: Default::default(),
             });
+            localization.lock().await.init_norm(
+                &StateRepresentation::new(0.0, 0.0, 0.0),
+                &(Matrix3::identity() * 0.5),
+            );
         }
 
         Self {
@@ -108,7 +112,7 @@ impl Subsystem<StateRepresentation, (f64, f64)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
         state.init().await;
         loop {
-            let mut position = Default::default();
+            let position = Default::default();
 
             {
                 // position = self.localization.lock().await.pose_estimate();
