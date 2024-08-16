@@ -30,13 +30,23 @@ impl Sensor for WallDistanceSensor {
         } else {
             let measured_meters = measured as f64 / 1000.0;
 
-            let sensor_position =
-                Rotation2::new(-x.z) * Vector2::new(self.sensor_pose.x, self.sensor_pose.y);
-            let orientation = Rotation2::new(self.sensor_pose.z + x.z);
+            let v_1 = Rotation2::new(-x.z) * Vector2::new(self.sensor_pose.x, self.sensor_pose.y);
+            let v_2 = Rotation2::new(self.sensor_pose.z + x.z) * Vector2::new(1.0, 0.0);
 
             let predicted = WALLS
                 .iter()
-                .filter_map(|line| Some(0.0))
+                .filter_map(|(v_3, v_4)| {
+                    let t = (((v_1.x - v_3.x) * (v_3.y - v_4.y))
+                        - ((v_1.y - v_3.y) * (v_3.x - v_4.x)))
+                        / (((v_1.x - v_2.x) * (v_3.y - v_4.y))
+                            - ((v_1.y - v_2.y) * (v_3.x - v_4.x)));
+
+                    if t > 0.0 || t.is_finite() {
+                        Some(t)
+                    } else {
+                        None
+                    }
+                })
                 .min_by(|a, b| a.partial_cmp(b).unwrap())?;
 
             let std = 0.025 * predicted / self.distance.distance_confidence().ok()?;
