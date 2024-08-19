@@ -99,10 +99,6 @@ impl Drivetrain {
         }
     }
 
-    pub async fn get_pose(&self) -> StateRepresentation {
-        self.localization.lock().await.pose_estimate()
-    }
-
     pub async fn init_norm(&mut self, mean: &StateRepresentation, covariance: &Matrix3<f64>) {
         self.localization.lock().await.init_norm(mean, covariance);
     }
@@ -110,15 +106,15 @@ impl Drivetrain {
 
 impl Subsystem<StateRepresentation, (f64, f64)> for Drivetrain {
     async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
-        state.init().await;
+        state.init();
         loop {
-            let position = Default::default();
+            let position;
 
             {
-                // position = self.localization.lock().await.pose_estimate();
+                position = self.localization.lock().await.pose_estimate();
             }
 
-            if let Some(output) = state.update(&position).await {
+            if let Some(output) = state.update(&position) {
                 let now = Instant::now();
 
                 // println!("updateD, {:?}", now);
@@ -145,7 +141,7 @@ impl<'a> TankDrive<'a> {
 }
 
 impl<'a> State<StateRepresentation, (f64, f64)> for TankDrive<'a> {
-    async fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
+    fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
         Some((
             self.controller.left_stick.y().ok()? as f64 * 12.0,
             self.controller.right_stick.y().ok()? as f64 * 12.0,
@@ -168,7 +164,7 @@ impl VoltageDrive {
 }
 
 impl State<StateRepresentation, (f64, f64)> for VoltageDrive {
-    async fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
+    fn update(&mut self, _: &StateRepresentation) -> Option<(f64, f64)> {
         Some((self.left_voltage as f64, self.right_voltage as f64))
     }
 }

@@ -23,11 +23,9 @@ impl WallDistanceSensor {
 
 impl Sensor for WallDistanceSensor {
     fn p(&self, x: &StateRepresentation) -> Option<f64> {
-        let measured = self.distance.distance().ok()?;
-
-        if measured == 9999 || self.distance.relative_size().ok()? < 50 {
-            None
-        } else {
+        if let Some(Some(measured)) = self.distance.distance().ok()
+            && self.distance.relative_size().ok()?? > 50
+        {
             let measured_meters = measured as f64 / 1000.0;
 
             let v_1 = Rotation2::new(-x.z) * Vector2::new(self.sensor_pose.x, self.sensor_pose.y);
@@ -52,6 +50,8 @@ impl Sensor for WallDistanceSensor {
             let std = 0.025 * predicted / self.distance.distance_confidence().ok()?;
 
             Some(utils::normal_pdf(measured_meters, predicted, std))
+        } else {
+            None
         }
     }
 }

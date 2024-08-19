@@ -3,6 +3,7 @@
 #![feature(future_join)]
 #![feature(async_closure)]
 #![feature(duration_millis_float)]
+#![feature(let_chains)]
 extern crate alloc;
 extern crate uom;
 
@@ -32,6 +33,7 @@ use crate::{
 mod actuator;
 mod config;
 mod localization;
+mod motion_control;
 mod sensor;
 mod state_machine;
 mod subsystems;
@@ -127,7 +129,7 @@ impl Compete for Robot {
     }
 }
 
-#[vexide::main(banner = false)]
+#[vexide::main(banner = true)]
 async fn main(peripherals: Peripherals) {
     let robot = Robot::new(peripherals).await;
     robot.compete().await;

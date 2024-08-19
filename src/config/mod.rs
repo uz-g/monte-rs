@@ -32,3 +32,8 @@ pub const WALLS: [(Vector2<f64>, Vector2<f64>); 2] = [
     (Vector2::new(0.0, 0.0), Vector2::new(1.0, 0.0)),
     (Vector2::new(0.0, 0.0), Vector2::new(0.0, 1.0)),
 ];
+
+pub const GPS_ANGLE_DIFF_MAX: f64 = PI / 8.0;
+pub fn track_width() -> Length {
+    Length::new::<inch>(10.0)
+}

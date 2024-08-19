@@ -1,10 +1,24 @@
-use core::f64::consts::PI;
+use core::f64::consts::{PI, TAU};
 
 use vexide::core::float::Float;
 
 pub fn normal_pdf(x: f64, mu: f64, sigma: f64) -> f64 {
     let exponent = -(x - mu) * (x - mu) / (2.0 * sigma * sigma);
     (1.0 / (sigma * (2.0 * PI).sqrt())) * exponent.exp()
+}
+
+/// Finds the minimum signed distance between 2 angles
+///
+/// # Examples
+/// ```
+/// let angle1: f64;
+/// let angle2: f64;
+///
+/// // angle1 - angle2
+/// let difference = angle_difference(angle1, angle2);
+/// ```
+pub fn angle_difference(x: f64, y: f64) -> f64 {
+    (x - y + PI) % TAU - PI
 }
 
 // pub fn normal_pdf_vec2(x: &Vector2<f64>, mean: &Vector2<f64>, covariance: &Matrix2<f64>) -> f64 {
