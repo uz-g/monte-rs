@@ -1,7 +1,7 @@
 use core::f64::consts::PI;
 
-use nalgebra::Matrix3;
-use simba::simd::SimdComplexField;
+use motion_profiling::motion_profile::MotionProfile;
+use nalgebra::{Matrix3, SimdComplexField};
 use uom::{
     num_traits::{real::Real, Pow},
     si::{angular_velocity::radian_per_second, length::meter, velocity::meter_per_second},
@@ -9,14 +9,13 @@ use uom::{
 use vexide::core::time::Instant;
 
 use crate::{
-    config::track_width, localization::localization::StateRepresentation,
-    motion_control::motion_profiling::MotionProfile, state_machine::State,
+    config::track_width, localization::localization::StateRepresentation, state_machine::State,
 };
 
 pub struct Ramsete<'a> {
     zeta: f64,
     beta: f64,
-    motion_profile: &'a mut MotionProfile,
+    motion_profile: &'a mut dyn MotionProfile,
     start_time: Instant,
 }
 
@@ -28,7 +27,7 @@ impl<'a> Ramsete<'a> {
     fn try_new(
         zeta: f64,
         beta: f64,
-        motion_profile: &'a mut MotionProfile,
+        motion_profile: &'a mut dyn MotionProfile,
     ) -> Result<Self, RamseteError> {
         if 0.0 < beta && 1.0 > beta {
             Err(RamseteError::InvalidBeta)
@@ -46,13 +45,10 @@ impl<'a> Ramsete<'a> {
 impl<'a> State<StateRepresentation, (f64, f64)> for Ramsete<'a> {
     fn init(&mut self) {
         self.start_time = Instant::now();
-        self.motion_profile.init();
     }
 
     fn update(&mut self, i: &StateRepresentation) -> Option<(f64, f64)> {
-        let command = self
-            .motion_profile
-            .update(&(Instant::now() - self.start_time))?;
+        let command = self.motion_profile.get(Instant::now() - self.start_time)?;
 
         let error = Matrix3::new(
             i.z.cos(),
@@ -87,5 +83,33 @@ impl<'a> State<StateRepresentation, (f64, f64)> for Ramsete<'a> {
             velocity_commanded - angular_wheel_velocity_commanded,
             velocity_commanded + angular_wheel_velocity_commanded,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use core::time::Duration;
+
+    use motion_profiling::motion_profile::MotionCommand;
+
+    use super::*;
+
+    struct DummyMotionProfile;
+
+    impl MotionProfile for DummyMotionProfile {
+        fn get_duration(&self) -> Duration {
+            Duration::new(0, 0)
+        }
+
+        fn get(&mut self, t: Duration) -> Option<MotionCommand> {
+            None
+        }
+    }
+
+    #[test]
+    fn build_ramsete() {
+        let mut mp = DummyMotionProfile;
+        let ramsete = Ramsete::try_new(1.0, 0.5, &mut mp);
+        assert!(ramsete.is_ok());
     }
 }
