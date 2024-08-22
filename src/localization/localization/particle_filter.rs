@@ -73,6 +73,7 @@ impl<const D: usize> ParticleFilter<D> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn init_uniform(&mut self, min: &StateRepresentation, max: &StateRepresentation) {
         let normal_dist_x = Uniform::new(min.x, max.x);
         let normal_dist_y = Uniform::new(min.y, max.y);

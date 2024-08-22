@@ -13,7 +13,7 @@ pub struct WallDistanceSensor {
 }
 
 impl WallDistanceSensor {
-    fn new(distance: DistanceSensor, sensor_pose: Vector3<f64>) -> Self {
+    pub fn new(distance: DistanceSensor, sensor_pose: Vector3<f64>) -> Self {
         Self {
             distance,
             sensor_pose,

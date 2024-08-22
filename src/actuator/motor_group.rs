@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 
+use uom::si::{angular_velocity::*, f64::AngularVelocity};
 use vexide::prelude::Motor;
 
 pub struct MotorGroup {
@@ -13,7 +14,15 @@ impl MotorGroup {
 
     pub fn set_voltage(&mut self, voltage: f64) {
         for motor in self.motors.iter_mut() {
-            let _ = motor.set_voltage(voltage);
+            motor.set_voltage(voltage).unwrap();
+        }
+    }
+
+    pub fn set_velocity(&mut self, velocity: AngularVelocity) {
+        for motor in self.motors.iter_mut() {
+            motor
+                .set_velocity(velocity.get::<revolution_per_minute>() as i32)
+                .unwrap()
         }
     }
 

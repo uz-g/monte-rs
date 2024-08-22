@@ -2,9 +2,9 @@ use nalgebra::Vector2;
 
 use crate::{localization::localization::StateRepresentation, utils};
 
-mod distance;
-mod gps;
-mod line_tracker;
+pub mod distance;
+pub mod gps;
+pub mod line_tracker;
 
 pub trait Sensor {
     fn p(&self, x: &StateRepresentation) -> Option<f64>;

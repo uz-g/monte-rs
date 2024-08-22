@@ -7,15 +7,15 @@ use crate::{
     localization::{localization::StateRepresentation, sensor::Sensor},
 };
 
-struct LineTracker {
+pub struct LineTrackerSensor {
     line_tracker: AdiLineTracker,
     position: Vector2<f64>,
     line_sensor_threshold: f64,
     distance_threshold: Length,
 }
 
-impl LineTracker {
-    fn new(
+impl LineTrackerSensor {
+    pub fn new(
         line_tracker: AdiLineTracker,
         position: Vector2<f64>,
         line_sensor_threshold: f64,
@@ -30,7 +30,7 @@ impl LineTracker {
     }
 }
 
-impl Sensor for LineTracker {
+impl Sensor for LineTrackerSensor {
     fn p(&self, x: &StateRepresentation) -> Option<f64> {
         let measured = self.line_tracker.reflectivity().ok()? > self.line_sensor_threshold;
         let sensor_position = Rotation2::new(-x.z) * self.position + Vector2::new(x.x, x.y);

@@ -1,33 +1,39 @@
-use core::f64::consts::PI;
+use alloc::boxed::Box;
 
 use motion_profiling::motion_profile::MotionProfile;
 use nalgebra::{Matrix3, SimdComplexField};
 use uom::{
     num_traits::{real::Real, Pow},
-    si::{angular_velocity::radian_per_second, length::meter, velocity::meter_per_second},
+    si::{
+        angular_velocity::radian_per_second, f64::AngularVelocity, length::meter,
+        velocity::meter_per_second,
+    },
 };
 use vexide::core::time::Instant;
 
 use crate::{
-    config::track_width, localization::localization::StateRepresentation, state_machine::State,
+    config::{track_width, wheel_diameter},
+    localization::localization::StateRepresentation,
+    state_machine::State,
 };
 
-pub struct Ramsete<'a> {
+pub struct Ramsete {
     zeta: f64,
     beta: f64,
-    motion_profile: &'a mut dyn MotionProfile,
+    motion_profile: Box<dyn MotionProfile>,
     start_time: Instant,
 }
 
+#[derive(Debug)]
 pub enum RamseteError {
     InvalidBeta,
 }
 
-impl<'a> Ramsete<'a> {
-    fn try_new(
+impl Ramsete {
+    pub fn try_new(
         zeta: f64,
         beta: f64,
-        motion_profile: &'a mut dyn MotionProfile,
+        motion_profile: Box<dyn MotionProfile>,
     ) -> Result<Self, RamseteError> {
         if 0.0 < beta && 1.0 > beta {
             Err(RamseteError::InvalidBeta)
@@ -42,12 +48,12 @@ impl<'a> Ramsete<'a> {
     }
 }
 
-impl<'a> State<StateRepresentation, (f64, f64)> for Ramsete<'a> {
+impl<'a> State<StateRepresentation, (AngularVelocity, AngularVelocity)> for Ramsete {
     fn init(&mut self) {
         self.start_time = Instant::now();
     }
 
-    fn update(&mut self, i: &StateRepresentation) -> Option<(f64, f64)> {
+    fn update(&mut self, i: &StateRepresentation) -> Option<(AngularVelocity, AngularVelocity)> {
         let command = self.motion_profile.get(Instant::now() - self.start_time)?;
 
         let error = Matrix3::new(
@@ -76,12 +82,18 @@ impl<'a> State<StateRepresentation, (f64, f64)> for Ramsete<'a> {
                 * command.desired_velocity.get::<meter_per_second>()
                 * error.z.simd_sinc()
                 * error.y)
-            * PI
-            * track_width().get::<meter>();
+            * track_width().get::<meter>()
+            / 2.0;
 
         Some((
-            velocity_commanded - angular_wheel_velocity_commanded,
-            velocity_commanded + angular_wheel_velocity_commanded,
+            AngularVelocity::new::<radian_per_second>(
+                (velocity_commanded - angular_wheel_velocity_commanded)
+                    / (wheel_diameter().get::<meter>() / 2.0),
+            ),
+            AngularVelocity::new::<radian_per_second>(
+                (velocity_commanded + angular_wheel_velocity_commanded)
+                    / (wheel_diameter().get::<meter>() / 2.0),
+            ),
         ))
     }
 }
@@ -97,7 +109,7 @@ mod tests {
     struct DummyMotionProfile;
 
     impl MotionProfile for DummyMotionProfile {
-        fn get_duration(&self) -> Duration {
+        fn duration(&self) -> Duration {
             Duration::new(0, 0)
         }
 

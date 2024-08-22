@@ -39,6 +39,7 @@ impl Telemetry {
         .await;
     }
 
+    #[allow(dead_code)]
     pub async fn send_str(&self, data: &str) {
         self.send(data.as_bytes()).await;
     }

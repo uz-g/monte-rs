@@ -1,29 +1,31 @@
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use core::{ops::Add, time::Duration};
 
-use nalgebra::Matrix3;
-use uom::si::f64::Length;
+use nalgebra::{Matrix3, Vector2};
+use uom::si::f64::{AngularVelocity, Length};
 use vexide::{
     core::{sync::Mutex, time::Instant},
+    devices::smart::GpsSensor,
     prelude::*,
 };
 
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{
-        localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE,
+        distance_threshold, localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE,
         LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES, TELEMETRY_ENABLED,
     },
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
         predict::tank_pose_tracking::TankPoseTracking,
-        sensor::DummySensor,
+        sensor::{distance::WallDistanceSensor, line_tracker::LineTrackerSensor},
     },
     sensor::rotary::TrackingWheel,
     state_machine::*,
 };
 
 /// Example implementation of a drivetrain subsystem.
+#[allow(dead_code)]
 pub struct Drivetrain {
     left_motor: Arc<Mutex<MotorGroup>>,
     right_motor: Arc<Mutex<MotorGroup>>,
@@ -40,6 +42,9 @@ impl Drivetrain {
         tracking_wheel_diameter: Length,
         drive_ratio: f64,
         telemetry: Telemetry,
+        distance_sensors: Vec<(DistanceSensor, StateRepresentation)>,
+        line_sensors: Vec<(AdiLineTracker, Vector2<f64>)>,
+        gps: GpsSensor,
     ) -> Self {
         let localization = Arc::new(Mutex::new(ParticleFilter::new(
             TankPoseTracking::new(
@@ -63,11 +68,29 @@ impl Drivetrain {
         )));
 
         {
-            localization.lock().await.add_sensor(DummySensor {
-                covariance: 0.5,
-                mean: Default::default(),
-            });
-            localization.lock().await.init_norm(
+            let mut loc_lock = localization.lock().await;
+
+            for (sensor, pose) in distance_sensors {
+                loc_lock.add_sensor(WallDistanceSensor::new(sensor, pose));
+            }
+
+            for (sensor, pose) in line_sensors {
+                loc_lock.add_sensor(LineTrackerSensor::new(
+                    sensor,
+                    pose,
+                    todo!(),
+                    distance_threshold(),
+                ));
+            }
+
+            loc_lock.add_sensor(gps);
+
+            // loc_lock.add_sensor(DummySensor {
+            //     covariance: 0.5,
+            //     mean: Default::default(),
+            // });
+
+            loc_lock.init_norm(
                 &StateRepresentation::new(0.0, 0.0, 0.0),
                 &(Matrix3::identity() * 0.5),
             );
@@ -102,10 +125,33 @@ impl Drivetrain {
     pub async fn init_norm(&mut self, mean: &StateRepresentation, covariance: &Matrix3<f64>) {
         self.localization.lock().await.init_norm(mean, covariance);
     }
-}
 
-impl Subsystem<StateRepresentation, (f64, f64)> for Drivetrain {
-    async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
+    pub async fn run_velocity(
+        &mut self,
+        mut state: impl State<StateRepresentation, (AngularVelocity, AngularVelocity)>,
+    ) {
+        state.init();
+        loop {
+            let position;
+
+            {
+                position = self.localization.lock().await.pose_estimate();
+            }
+
+            if let Some(output) = state.update(&position) {
+                let now = Instant::now();
+
+                self.left_motor.lock().await.set_velocity(output.0);
+                self.right_motor.lock().await.set_velocity(output.1);
+
+                sleep_until(now.add(Duration::from_millis(10))).await;
+            } else {
+                return;
+            }
+        }
+    }
+
+    pub async fn run(&mut self, mut state: impl State<StateRepresentation, (f64, f64)>) {
         state.init();
         loop {
             let position;

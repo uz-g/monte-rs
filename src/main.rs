@@ -7,27 +7,35 @@
 extern crate alloc;
 extern crate uom;
 
-use alloc::{ffi::CString, format, sync::Arc, vec};
+use alloc::{boxed::Box, ffi::CString, format, sync::Arc, vec};
 use core::{future::join, time::Duration};
 
 use futures::{select_biased, FutureExt};
+use motion_profiling::combined_mp::CombinedMP;
 use nalgebra::Matrix3;
-use state_machine::Subsystem;
-use subsystems::{
-    drivetrain::VoltageDrive,
-    lift::{Lift, TeleopArm},
-};
+use subsystems::drivetrain::VoltageDrive;
+use uom::si::length::meter;
 use vexide::{
     core::sync::Mutex,
-    devices::screen::{Text, TextSize},
+    devices::{
+        screen::{Text, TextSize},
+        smart::GpsSensor,
+    },
     prelude::*,
 };
 
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
-    config::{wheel_diameter, DRIVE_RATIO},
+    config::{
+        get_distance_1_offset, get_distance_2_offset, get_distance_3_offset, get_gps_offset,
+        get_line_1_offset, track_width, wheel_diameter, DRIVE_RATIO,
+    },
     localization::localization::StateRepresentation,
-    subsystems::drivetrain::{Drivetrain, TankDrive},
+    motion_control::ramsete::Ramsete,
+    subsystems::{
+        drivetrain::{Drivetrain, TankDrive},
+        intake::Intake,
+    },
 };
 
 mod actuator;
@@ -41,43 +49,60 @@ mod utils;
 
 struct Robot {
     drivetrain: Drivetrain,
-    lift: Lift,
+    intake: Intake,
     controller: Controller,
-    telemetry: Telemetry,
+    _telemetry: Telemetry,
     _telemetry_task: Task<()>,
 }
 
 impl Robot {
     async fn new(mut peripherals: Peripherals) -> Self {
-        let telemetry = Telemetry::new(SerialPort::open(peripherals.port_2, 115200));
+        let _telemetry = Telemetry::new(SerialPort::open(peripherals.port_10, 115200));
 
         let drivetrain = Drivetrain::new(
-            Arc::new(Mutex::new(MotorGroup::new(vec![Motor::new(
-                peripherals.port_12,
-                Gearset::Green,
-                Direction::Forward,
-            )]))),
-            Arc::new(Mutex::new(MotorGroup::new(vec![Motor::new(
-                peripherals.port_1,
-                Gearset::Green,
-                Direction::Forward,
-            )]))),
-            InertialSensor::new(peripherals.port_5),
+            Arc::new(Mutex::new(MotorGroup::new(vec![
+                Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_2, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_3, Gearset::Green, Direction::Forward),
+            ]))),
+            Arc::new(Mutex::new(MotorGroup::new(vec![
+                Motor::new(peripherals.port_4, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_5, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_6, Gearset::Green, Direction::Forward),
+            ]))),
+            InertialSensor::new(peripherals.port_8),
             wheel_diameter(),
             DRIVE_RATIO,
-            telemetry.clone(),
+            _telemetry.clone(),
+            vec![
+                (
+                    DistanceSensor::new(peripherals.port_12),
+                    get_distance_1_offset(),
+                ),
+                (
+                    DistanceSensor::new(peripherals.port_13),
+                    get_distance_2_offset(),
+                ),
+                (
+                    DistanceSensor::new(peripherals.port_14),
+                    get_distance_3_offset(),
+                ),
+            ],
+            vec![(AdiLineTracker::new(peripherals.adi_a), get_line_1_offset())],
+            GpsSensor::new(peripherals.port_11, get_gps_offset(), ((0.0, 0.0), 0.0))
+                .expect("GPS not plugged in"),
         )
         .await;
 
         Self {
             drivetrain,
-            lift: Lift::new(Motor::new(
-                peripherals.port_3,
-                Gearset::Green,
-                Direction::Forward,
-            )),
+            intake: Intake::new(
+                Motor::new(peripherals.port_15, Gearset::Red, Direction::Forward),
+                Motor::new(peripherals.port_16, Gearset::Red, Direction::Forward),
+                Motor::new(peripherals.port_17, Gearset::Red, Direction::Forward),
+            ),
             controller: peripherals.primary_controller,
-            telemetry: telemetry.clone(),
+            _telemetry: _telemetry.clone(),
             _telemetry_task: spawn(async move {
                 let mut text = Text::new_aligned(
                     "test-text",
@@ -100,13 +125,28 @@ impl Robot {
 impl Compete for Robot {
     async fn autonomous(&mut self) {
         println!("auto");
+
         self.drivetrain
             .init_norm(
                 &StateRepresentation::new(0.0, 0.0, 0.0),
                 &Matrix3::new(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0),
             )
             .await;
-        sleep(Duration::from_secs(2)).await;
+
+        let ramsete = Ramsete::try_new(
+            0.1,
+            0.5,
+            Box::new(
+                CombinedMP::try_new_2d(
+                    serde_json::from_str(include_str!("../bins/paths/test.json")).unwrap(),
+                    track_width().get::<meter>(),
+                )
+                .unwrap(),
+            ),
+        )
+        .unwrap();
+
+        self.drivetrain.run_velocity(ramsete).await;
 
         {
             let drive_state = self.drivetrain.run(VoltageDrive::new(-12.0, -12.0));
@@ -123,9 +163,8 @@ impl Compete for Robot {
     async fn driver(&mut self) {
         println!("Drive");
         let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
-        let arm_state = self.lift.run(TeleopArm::new(&self.controller));
 
-        join!(arm_state, drive_state).await;
+        join!(drive_state).await;
     }
 }
 
