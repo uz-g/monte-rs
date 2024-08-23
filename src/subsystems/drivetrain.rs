@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use core::{ops::Add, time::Duration};
+use core::{f64::consts::TAU, ops::Add, time::Duration};
 
 use nalgebra::{Matrix3, Vector2};
 use uom::si::f64::{AngularVelocity, Length};
@@ -12,7 +12,7 @@ use vexide::{
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{
-        distance_threshold, localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE,
+        distance_threshold, localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE, FIELD_MAX,
         LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES, TELEMETRY_ENABLED,
     },
     localization::{
@@ -90,9 +90,9 @@ impl Drivetrain {
             //     mean: Default::default(),
             // });
 
-            loc_lock.init_norm(
-                &StateRepresentation::new(0.0, 0.0, 0.0),
-                &(Matrix3::identity() * 0.5),
+            loc_lock.init_uniform(
+                &StateRepresentation::new(-FIELD_MAX, -FIELD_MAX, 0.0),
+                &StateRepresentation::new(FIELD_MAX, FIELD_MAX, TAU),
             );
         }
 

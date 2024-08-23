@@ -21,7 +21,8 @@ pub fn localization_min_update_distance() -> Length {
     Length::new::<inch>(2.0)
 }
 
-pub const FIELD_MAX: f64 = 1.783;
+pub const FIELD_SIZE: f64 = 3.566414;
+pub const FIELD_MAX: f64 = FIELD_SIZE / 2.0;
 
 pub const ANGLE_NOISE: f64 = PI / 20.0;
 pub const DRIVE_NOISE: f64 = 0.1;

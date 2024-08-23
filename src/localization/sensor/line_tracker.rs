@@ -47,14 +47,11 @@ impl Sensor for LineTrackerSensor {
             .min_by(|a, b| a.partial_cmp(b).unwrap())?
             < self.distance_threshold.get::<meter>();
 
-        if measured && predicted {
-            Some(0.9)
-        } else if measured && !predicted {
-            Some(0.1)
-        } else if !measured && predicted {
-            Some(0.1)
-        } else {
-            Some(0.9)
+        match (measured, predicted) {
+            (true, true) => Some(0.9),
+            (true, false) => Some(0.1),
+            (false, true) => Some(0.1),
+            (false, false) => Some(0.9),
         }
     }
 }

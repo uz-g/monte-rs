@@ -8,7 +8,7 @@ extern crate alloc;
 extern crate uom;
 
 use alloc::{boxed::Box, ffi::CString, format, sync::Arc, vec};
-use core::{future::join, time::Duration};
+use core::{future::join, panic::PanicInfo, time::Duration};
 
 use futures::{select_biased, FutureExt};
 use motion_profiling::combined_mp::CombinedMP;
@@ -18,6 +18,7 @@ use uom::si::length::meter;
 use vexide::{
     core::sync::Mutex,
     devices::{
+        controller::ControllerId,
         screen::{Text, TextSize},
         smart::GpsSensor,
     },

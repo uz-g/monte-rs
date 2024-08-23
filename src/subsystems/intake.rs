@@ -1,7 +1,7 @@
 use core::time::Duration;
 
 use uom::si::{angular_velocity::revolution_per_minute, f64::AngularVelocity};
-use vexide::prelude::{sleep, Motor, Position};
+use vexide::prelude::{sleep, Controller, Motor, Position};
 
 use crate::{
     config::{INTAKE_RATIO, LIFT_RATIO},
@@ -71,5 +71,15 @@ impl LoadGoal {
 impl State<(), IntakeCommand> for LoadGoal {
     fn update(&mut self, i: &()) -> Option<IntakeCommand> {
         todo!()
+    }
+}
+
+pub struct IntakeManual<'a> {
+    controller: &'a Controller,
+}
+
+impl<'a> State<(), IntakeCommand> for IntakeManual<'a> {
+    fn update(&mut self, i: &()) -> Option<IntakeCommand> {
+        None
     }
 }
