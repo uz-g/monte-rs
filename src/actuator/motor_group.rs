@@ -14,15 +14,13 @@ impl MotorGroup {
 
     pub fn set_voltage(&mut self, voltage: f64) {
         for motor in self.motors.iter_mut() {
-            motor.set_voltage(voltage).unwrap();
+            let _ = motor.set_voltage(voltage);
         }
     }
 
     pub fn set_velocity(&mut self, velocity: AngularVelocity) {
         for motor in self.motors.iter_mut() {
-            motor
-                .set_velocity(velocity.get::<revolution_per_minute>() as i32)
-                .unwrap()
+            let _ = motor.set_velocity(velocity.get::<revolution_per_minute>() as i32);
         }
     }
 

@@ -27,6 +27,8 @@ pub const FIELD_MAX: f64 = FIELD_SIZE / 2.0;
 pub const ANGLE_NOISE: f64 = PI / 20.0;
 pub const DRIVE_NOISE: f64 = 0.1;
 
+pub const LINE_SENSOR_THRESHOLD: f64 = 0.2;
+
 pub const FIELD_TAPES: [(Vector2<f64>, Vector2<f64>); 2] = [
     (Vector2::new(0.0, 0.0), Vector2::new(1.0, 0.0)),
     (Vector2::new(0.0, 0.0), Vector2::new(0.0, 1.0)),
@@ -40,7 +42,7 @@ pub const WALLS: [(Vector2<f64>, Vector2<f64>); 2] = [
 pub const GPS_ANGLE_DIFF_MAX: f64 = PI / 8.0;
 
 pub const LIFT_RATIO: f64 = 8.0;
-pub const INTAKE_RATIO: f64 = 8.0;
+pub const INTAKE_RATIO: f64 = 16.5 / 6.0;
 
 pub fn track_width() -> Length {
     Length::new::<inch>(10.0)
@@ -55,17 +57,17 @@ pub fn get_gps_offset() -> Point2<f64> {
 }
 
 pub fn get_distance_1_offset() -> StateRepresentation {
-    todo!()
+    StateRepresentation::new(0.0, 0.0, 0.0)
 }
 
 pub fn get_distance_2_offset() -> StateRepresentation {
-    todo!()
+    StateRepresentation::new(0.0, 0.0, 0.0)
 }
 
 pub fn get_distance_3_offset() -> StateRepresentation {
-    todo!()
+    StateRepresentation::new(0.0, 0.0, 0.0)
 }
 
 pub fn get_line_1_offset() -> Vector2<f64> {
-    todo!()
+    Vector2::new(0.0, 0.0)
 }

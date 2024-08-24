@@ -36,21 +36,17 @@ impl Intake {
 
         loop {
             if let Some(command) = state.update(&()) {
-                self.lift
-                    .set_position_target(
-                        Position::from_revolutions(command.lift_position.0 * LIFT_RATIO),
-                        command.lift_position.1,
-                    )
-                    .expect("Failed to move arm");
-                self.top
-                    .set_position_target(
-                        Position::from_revolutions(command.lift_position.0 * INTAKE_RATIO),
-                        200,
-                    )
-                    .expect("Failed to move intake");
-                self.bottom
-                    .set_velocity(command.bottom_speed.get::<revolution_per_minute>() as i32)
-                    .expect("Can't set bottom intake speed");
+                let _ = self.lift.set_position_target(
+                    Position::from_revolutions(command.lift_position.0 * LIFT_RATIO),
+                    command.lift_position.1,
+                );
+                let _ = self.top.set_position_target(
+                    Position::from_revolutions(command.lift_position.0 * INTAKE_RATIO),
+                    200,
+                );
+                let _ = self
+                    .bottom
+                    .set_velocity(command.bottom_speed.get::<revolution_per_minute>() as i32);
             } else {
                 return;
             }
@@ -75,11 +71,51 @@ impl State<(), IntakeCommand> for LoadGoal {
 }
 
 pub struct IntakeManual<'a> {
-    controller: &'a Controller,
+    pub controller: &'a mut Controller,
+    pub lift_pos: f64,
+    pub top_pos: f64,
 }
 
 impl<'a> State<(), IntakeCommand> for IntakeManual<'a> {
-    fn update(&mut self, i: &()) -> Option<IntakeCommand> {
-        None
+    fn update(&mut self, _: &()) -> Option<IntakeCommand> {
+        if self
+            .controller
+            .right_trigger_1
+            .was_pressed()
+            .unwrap_or(false)
+        {
+            self.top_pos += 1.0;
+        } else if self
+            .controller
+            .right_trigger_2
+            .was_pressed()
+            .unwrap_or(false)
+        {
+            self.top_pos -= 1.0;
+        }
+
+        if self
+            .controller
+            .left_trigger_1
+            .was_pressed()
+            .unwrap_or(false)
+        {
+            self.lift_pos += 1.0;
+        } else if self
+            .controller
+            .left_trigger_2
+            .was_pressed()
+            .unwrap_or(false)
+        {
+            self.lift_pos -= 1.0;
+        }
+
+        Some(IntakeCommand {
+            bottom_speed: AngularVelocity::new::<revolution_per_minute>(
+                (self.controller.right_stick.y().unwrap_or(0.0) * 600.0).into(),
+            ),
+            top_position: self.top_pos,
+            lift_position: (self.lift_pos, 200),
+        })
     }
 }

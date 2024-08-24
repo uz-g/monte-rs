@@ -35,7 +35,7 @@ use crate::{
     motion_control::ramsete::Ramsete,
     subsystems::{
         drivetrain::{Drivetrain, TankDrive},
-        intake::Intake,
+        intake::{Intake, IntakeManual},
     },
 };
 
@@ -90,8 +90,7 @@ impl Robot {
                 ),
             ],
             vec![(AdiLineTracker::new(peripherals.adi_a), get_line_1_offset())],
-            GpsSensor::new(peripherals.port_11, get_gps_offset(), ((0.0, 0.0), 0.0))
-                .expect("GPS not plugged in"),
+            GpsSensor::new(peripherals.port_11, get_gps_offset(), ((0.0, 0.0), 0.0)),
         )
         .await;
 
@@ -163,13 +162,21 @@ impl Compete for Robot {
 
     async fn driver(&mut self) {
         println!("Drive");
-        let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
+        // let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
 
-        join!(drive_state).await;
+        self.intake
+            .run(IntakeManual {
+                controller: &mut self.controller,
+                lift_pos: 0.0,
+                top_pos: 0.0,
+            })
+            .await;
+
+        // join!(drive_state).await;
     }
 }
 
-#[vexide::main(banner = true)]
+#[vexide::main]
 async fn main(peripherals: Peripherals) {
     let robot = Robot::new(peripherals).await;
     robot.compete().await;

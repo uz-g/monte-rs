@@ -5,7 +5,7 @@ use nalgebra::{Matrix3, Vector2};
 use uom::si::f64::{AngularVelocity, Length};
 use vexide::{
     core::{sync::Mutex, time::Instant},
-    devices::smart::GpsSensor,
+    devices::{smart::GpsSensor, PortError},
     prelude::*,
 };
 
@@ -13,7 +13,7 @@ use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
     config::{
         distance_threshold, localization_min_update_distance, ANGLE_NOISE, DRIVE_NOISE, FIELD_MAX,
-        LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES, TELEMETRY_ENABLED,
+        LINE_SENSOR_THRESHOLD, LOCALIZATION_MIN_UPDATE_INTERVAL, NUM_PARTICLES, TELEMETRY_ENABLED,
     },
     localization::{
         localization::{particle_filter::ParticleFilter, Localization, StateRepresentation},
@@ -44,7 +44,7 @@ impl Drivetrain {
         telemetry: Telemetry,
         distance_sensors: Vec<(DistanceSensor, StateRepresentation)>,
         line_sensors: Vec<(AdiLineTracker, Vector2<f64>)>,
-        gps: GpsSensor,
+        gps: Result<GpsSensor, PortError>,
     ) -> Self {
         let localization = Arc::new(Mutex::new(ParticleFilter::new(
             TankPoseTracking::new(
@@ -78,12 +78,14 @@ impl Drivetrain {
                 loc_lock.add_sensor(LineTrackerSensor::new(
                     sensor,
                     pose,
-                    todo!(),
+                    LINE_SENSOR_THRESHOLD,
                     distance_threshold(),
                 ));
             }
 
-            loc_lock.add_sensor(gps);
+            if let Ok(gps_ok) = gps {
+                loc_lock.add_sensor(gps_ok);
+            }
 
             // loc_lock.add_sensor(DummySensor {
             //     covariance: 0.5,
@@ -165,8 +167,8 @@ impl Drivetrain {
 
                 // println!("updateD, {:?}", now);
 
-                let _ = self.left_motor.lock().await.set_voltage(output.0);
-                let _ = self.right_motor.lock().await.set_voltage(output.1);
+                self.left_motor.lock().await.set_voltage(output.0);
+                self.right_motor.lock().await.set_voltage(output.1);
 
                 sleep_until(now.add(Duration::from_millis(10))).await;
             } else {

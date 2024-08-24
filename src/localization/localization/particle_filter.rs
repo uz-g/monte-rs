@@ -9,12 +9,12 @@ use rand::{
 };
 use rand_distr::Normal;
 use uom::si::{f64::Length, length::meter};
-use vexide::core::{sync::Mutex, time::Instant};
+use vexide::core::{println, sync::Mutex, time::Instant};
 
 use super::{Localization, Sensor, StateRepresentation};
 use crate::{
     actuator::motor_group::MotorGroup, config::FIELD_MAX,
-    localization::predict::tank_pose_tracking::TankPoseTracking,
+    localization::predict::tank_pose_tracking::TankPoseTracking, uom::num_traits::Float,
 };
 
 pub struct ParticleFilter<const D: usize> {
@@ -75,6 +75,10 @@ impl<const D: usize> ParticleFilter<D> {
 
     #[allow(dead_code)]
     pub fn init_uniform(&mut self, min: &StateRepresentation, max: &StateRepresentation) {
+        assert!(min.x <= max.x, "Min must be less than max");
+        assert!(min.y <= max.y, "Min must be less than max");
+        assert!(min.z <= max.z, "Min must be less than max");
+
         let normal_dist_x = Uniform::new(min.x, max.x);
         let normal_dist_y = Uniform::new(min.y, max.y);
         let normal_dist_z = Uniform::new(min.z, max.z);
@@ -126,11 +130,16 @@ impl<const D: usize> Localization for ParticleFilter<D> {
                 .sensors
                 .iter()
                 .filter_map(|sensor| sensor.p(&particle))
-                .sum();
+                .sum::<f64>()
+                .abs();
         }
 
         // Calculate average weight and random variable for resample
         let avg_weight = weights.iter().sum::<f64>() / weights.len() as f64;
+        if avg_weight <= 0.0 {
+            println!("WARNING: Avg weight too low: {}", avg_weight);
+            return;
+        }
         let sample_rand = self.rng.sample(Uniform::new(0.0, avg_weight));
 
         // Clone the particles to be memory safe with resample

@@ -5,7 +5,7 @@ use uom::si::{
     angle::{degree, radian},
     f64::Angle,
 };
-use vexide::prelude::InertialSensor;
+use vexide::{core::println, prelude::InertialSensor};
 
 use crate::{
     localization::localization::StateRepresentation,
@@ -32,7 +32,7 @@ impl<T: RotarySensor> TankPoseTracking<T> {
         drive_noise: f64,
         angle_noise: f64,
     ) -> Self {
-        orientation.calibrate().await.expect("Failed to calibrate");
+        let _ = orientation.calibrate().await;
         Self {
             left_side,
             right_side,
@@ -80,9 +80,13 @@ impl<T: RotarySensor> TankPoseTracking<T> {
 
     pub fn orientation(&self) -> Rotation2<f64> {
         // Convert to a Rotation2 object to use for linear algebra
-        Rotation2::new(
-            Angle::new::<degree>(-self.orientation.heading().expect("Failed to read from IMU"))
-                .get::<radian>(),
-        )
+
+        if let Ok(orientation) = self.orientation.heading() {
+            Rotation2::new(Angle::new::<degree>(-orientation).get::<radian>())
+        } else {
+            println!("WARNING: No IMU");
+            Rotation2::new(Angle::new::<degree>(0.0).get::<radian>())
+            // TODO: Fix orientation source when it's not there
+        }
     }
 }
