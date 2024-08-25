@@ -1,2 +1,4 @@
 pub mod drivetrain;
-pub mod lift;
+pub mod goal_clamp;
+pub mod hook;
+pub mod intake;
