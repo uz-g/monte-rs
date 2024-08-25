@@ -20,9 +20,14 @@ pub struct IntakeState {
     top_2_ring: bool,
 }
 
+pub enum TopCommand {
+    Velocity(i32),
+    Position(f64),
+}
+
 pub struct IntakeCommand {
     bottom_speed: AngularVelocity,
-    top_position: f64,
+    top_command: TopCommand,
     lift_position: (f64, i32),
 }
 
@@ -31,19 +36,30 @@ impl Intake {
         Self { bottom, top, lift }
     }
 
-    pub async fn run(&mut self, mut state: impl State<(), IntakeCommand>) {
+    pub async fn run(&mut self, mut state: impl State<f64, IntakeCommand>) {
         state.init();
 
         loop {
-            if let Some(command) = state.update(&()) {
+            if let Some(command) = state.update(
+                &(self
+                    .top
+                    .position()
+                    .unwrap_or(Position::from_revolutions(0.0))
+                    .as_revolutions()
+                    / INTAKE_RATIO),
+            ) {
                 let _ = self.lift.set_position_target(
                     Position::from_revolutions(command.lift_position.0 * LIFT_RATIO),
                     command.lift_position.1,
                 );
-                let _ = self.top.set_position_target(
-                    Position::from_revolutions(command.lift_position.0 * INTAKE_RATIO),
-                    200,
-                );
+
+                let _ = match command.top_command {
+                    TopCommand::Position(pos) => self
+                        .top
+                        .set_position_target(Position::from_revolutions(pos * INTAKE_RATIO), 200),
+                    TopCommand::Velocity(vel) => self.top.set_velocity(vel),
+                };
+
                 let _ = self
                     .bottom
                     .set_velocity(command.bottom_speed.get::<revolution_per_minute>() as i32);
@@ -56,17 +72,21 @@ impl Intake {
     }
 }
 
-pub struct LoadGoal {}
+pub struct LoadGoal;
 
 impl LoadGoal {
     pub fn new() -> Self {
-        Self {}
+        Self
     }
 }
 
-impl State<(), IntakeCommand> for LoadGoal {
-    fn update(&mut self, i: &()) -> Option<IntakeCommand> {
-        todo!()
+impl State<f64, IntakeCommand> for LoadGoal {
+    fn update(&mut self, _: &f64) -> Option<IntakeCommand> {
+        Some(IntakeCommand {
+            bottom_speed: AngularVelocity::new::<revolution_per_minute>(600.0),
+            top_command: TopCommand::Velocity(600),
+            lift_position: (0.0, 200),
+        })
     }
 }
 
@@ -76,8 +96,8 @@ pub struct IntakeManual<'a> {
     pub top_pos: f64,
 }
 
-impl<'a> State<(), IntakeCommand> for IntakeManual<'a> {
-    fn update(&mut self, _: &()) -> Option<IntakeCommand> {
+impl<'a> State<f64, IntakeCommand> for IntakeManual<'a> {
+    fn update(&mut self, _: &f64) -> Option<IntakeCommand> {
         if self
             .controller
             .right_trigger_1
@@ -112,9 +132,9 @@ impl<'a> State<(), IntakeCommand> for IntakeManual<'a> {
 
         Some(IntakeCommand {
             bottom_speed: AngularVelocity::new::<revolution_per_minute>(
-                (self.controller.right_stick.y().unwrap_or(0.0) * 600.0).into(),
+                (self.controller.right_stick.y().unwrap_or(0.0) * 200.0).into(),
             ),
-            top_position: self.top_pos,
+            top_command: TopCommand::Position(self.top_pos),
             lift_position: (self.lift_pos, 200),
         })
     }

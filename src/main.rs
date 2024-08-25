@@ -14,7 +14,7 @@ use futures::{select_biased, FutureExt};
 use motion_profiling::combined_mp::CombinedMP;
 use nalgebra::Matrix3;
 use subsystems::drivetrain::VoltageDrive;
-use uom::si::length::meter;
+use uom::si::{angle::revolution, f64::Angle, length::meter};
 use vexide::{
     core::sync::Mutex,
     devices::{
@@ -35,6 +35,7 @@ use crate::{
     motion_control::ramsete::Ramsete,
     subsystems::{
         drivetrain::{Drivetrain, TankDrive},
+        hook::{Hook, HookPosition},
         intake::{Intake, IntakeManual},
     },
 };
@@ -51,6 +52,7 @@ mod utils;
 struct Robot {
     drivetrain: Drivetrain,
     intake: Intake,
+    hook: Hook,
     controller: Controller,
     _telemetry: Telemetry,
     _telemetry_task: Task<()>,
@@ -58,7 +60,10 @@ struct Robot {
 
 impl Robot {
     async fn new(mut peripherals: Peripherals) -> Self {
-        let _telemetry = Telemetry::new(SerialPort::open(peripherals.port_10, 115200));
+        let _telemetry = Telemetry::new(SerialPort::open(
+            peripherals.port_10,
+            SerialPort::MAX_BAUD_RATE,
+        ));
 
         let drivetrain = Drivetrain::new(
             Arc::new(Mutex::new(MotorGroup::new(vec![
@@ -101,6 +106,11 @@ impl Robot {
                 Motor::new(peripherals.port_16, Gearset::Red, Direction::Forward),
                 Motor::new(peripherals.port_17, Gearset::Red, Direction::Forward),
             ),
+            hook: Hook::new(Motor::new(
+                peripherals.port_18,
+                Gearset::Green,
+                Direction::Reverse,
+            )),
             controller: peripherals.primary_controller,
             _telemetry: _telemetry.clone(),
             _telemetry_task: spawn(async move {
@@ -131,6 +141,10 @@ impl Compete for Robot {
                 &StateRepresentation::new(0.0, 0.0, 0.0),
                 &Matrix3::new(0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0),
             )
+            .await;
+
+        self.hook
+            .run(HookPosition(Angle::new::<revolution>(0.0)))
             .await;
 
         let ramsete = Ramsete::try_new(

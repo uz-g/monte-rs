@@ -15,6 +15,7 @@ use crate::{
     config::{track_width, wheel_diameter},
     localization::localization::StateRepresentation,
     state_machine::State,
+    utils::angle_difference,
 };
 
 pub struct Ramsete {
@@ -77,7 +78,7 @@ impl<'a> State<StateRepresentation, (AngularVelocity, AngularVelocity)> for Rams
         let velocity_commanded =
             command.desired_velocity.get::<meter_per_second>() * error.z.cos() + k * error.x;
         let angular_wheel_velocity_commanded = (command.desired_angular.get::<radian_per_second>()
-            + k * error.z
+            + k * angle_difference(error.z, 0.0)
             + self.beta
                 * command.desired_velocity.get::<meter_per_second>()
                 * error.z.simd_sinc()
