@@ -35,8 +35,9 @@ use crate::{
     motion_control::ramsete::Ramsete,
     subsystems::{
         drivetrain::{Drivetrain, TankDrive},
+        goal_clamp::{GoalClamp, GoalController},
         hook::{Hook, HookPosition},
-        intake::{Intake, IntakeManual},
+        intake::{Intake, IntakeManual, LoadGoal},
     },
 };
 
@@ -53,7 +54,9 @@ struct Robot {
     drivetrain: Drivetrain,
     intake: Intake,
     hook: Hook,
-    controller: Controller,
+    controller_primary: Controller,
+    controller_partner: Controller,
+    goal_clamp: GoalClamp,
     _telemetry: Telemetry,
     _telemetry_task: Task<()>,
 }
@@ -61,22 +64,24 @@ struct Robot {
 impl Robot {
     async fn new(mut peripherals: Peripherals) -> Self {
         let _telemetry = Telemetry::new(SerialPort::open(
-            peripherals.port_10,
+            peripherals.port_20,
             SerialPort::MAX_BAUD_RATE,
         ));
 
+        // TODO Fix drivetrain encoders with 5.5W behavior
+
         let drivetrain = Drivetrain::new(
             Arc::new(Mutex::new(MotorGroup::new(vec![
-                Motor::new(peripherals.port_1, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_2, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_3, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_4, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_2, Gearset::Blue, Direction::Forward),
+                Motor::new(peripherals.port_3, Gearset::Blue, Direction::Reverse),
             ]))),
             Arc::new(Mutex::new(MotorGroup::new(vec![
-                Motor::new(peripherals.port_4, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_5, Gearset::Green, Direction::Forward),
-                Motor::new(peripherals.port_6, Gearset::Green, Direction::Forward),
+                Motor::new(peripherals.port_9, Gearset::Green, Direction::Reverse),
+                Motor::new(peripherals.port_6, Gearset::Blue, Direction::Forward),
+                Motor::new(peripherals.port_7, Gearset::Blue, Direction::Forward),
             ]))),
-            InertialSensor::new(peripherals.port_8),
+            InertialSensor::new(peripherals.port_19),
             wheel_diameter(),
             DRIVE_RATIO,
             _telemetry.clone(),
@@ -94,7 +99,7 @@ impl Robot {
                     get_distance_3_offset(),
                 ),
             ],
-            vec![(AdiLineTracker::new(peripherals.adi_a), get_line_1_offset())],
+            vec![(AdiLineTracker::new(peripherals.adi_b), get_line_1_offset())],
             GpsSensor::new(peripherals.port_11, get_gps_offset(), ((0.0, 0.0), 0.0)),
         )
         .await;
@@ -102,16 +107,18 @@ impl Robot {
         Self {
             drivetrain,
             intake: Intake::new(
-                Motor::new(peripherals.port_15, Gearset::Red, Direction::Forward),
-                Motor::new(peripherals.port_16, Gearset::Red, Direction::Forward),
+                Motor::new(peripherals.port_10, Gearset::Green, Direction::Reverse),
+                Motor::new(peripherals.port_5, Gearset::Blue, Direction::Reverse),
                 Motor::new(peripherals.port_17, Gearset::Red, Direction::Forward),
             ),
             hook: Hook::new(Motor::new(
-                peripherals.port_18,
+                peripherals.port_8,
                 Gearset::Green,
                 Direction::Reverse,
             )),
-            controller: peripherals.primary_controller,
+            controller_primary: peripherals.primary_controller,
+            controller_partner: peripherals.partner_controller,
+            goal_clamp: GoalClamp::new(AdiDigitalOut::new(peripherals.adi_a)),
             _telemetry: _telemetry.clone(),
             _telemetry_task: spawn(async move {
                 let mut text = Text::new_aligned(
@@ -178,15 +185,10 @@ impl Compete for Robot {
         println!("Drive");
         // let drive_state = self.drivetrain.run(TankDrive::new(&self.controller));
 
-        self.intake
-            .run(IntakeManual {
-                controller: &mut self.controller,
-                lift_pos: 0.0,
-                top_pos: 0.0,
-            })
-            .await;
-
-        // join!(drive_state).await;
+        join!(self.goal_clamp.run(GoalController {
+            controller: &mut self.controller_primary
+        }))
+        .await;
     }
 }
 

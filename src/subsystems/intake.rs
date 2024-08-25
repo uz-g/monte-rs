@@ -56,7 +56,7 @@ impl Intake {
                 let _ = match command.top_command {
                     TopCommand::Position(pos) => self
                         .top
-                        .set_position_target(Position::from_revolutions(pos * INTAKE_RATIO), 200),
+                        .set_position_target(Position::from_revolutions(pos * INTAKE_RATIO), 600),
                     TopCommand::Velocity(vel) => self.top.set_velocity(vel),
                 };
 
@@ -85,7 +85,7 @@ impl State<f64, IntakeCommand> for LoadGoal {
         Some(IntakeCommand {
             bottom_speed: AngularVelocity::new::<revolution_per_minute>(600.0),
             top_command: TopCommand::Velocity(600),
-            lift_position: (0.0, 200),
+            lift_position: (0.0, 600),
         })
     }
 }
@@ -135,7 +135,7 @@ impl<'a> State<f64, IntakeCommand> for IntakeManual<'a> {
                 (self.controller.right_stick.y().unwrap_or(0.0) * 200.0).into(),
             ),
             top_command: TopCommand::Position(self.top_pos),
-            lift_position: (self.lift_pos, 200),
+            lift_position: (self.lift_pos, 600),
         })
     }
 }
