@@ -1,9 +1,5 @@
 use core::f64::consts::{PI, TAU};
-use vexide::prelude::*;
-use vexide::{
-    prelude::*,
-    float::Float,
-};
+
 use vexide::core::float::Float;
 
 pub fn normal_pdf(x: f64, mu: f64, sigma: f64) -> f64 {

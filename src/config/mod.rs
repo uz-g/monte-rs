@@ -1,11 +1,8 @@
 use core::{f64::consts::PI, time::Duration};
-use vexide::prelude::*;
-use vexide::{
-    prelude::*,
-    geometry::Point2,  // If Point2 is available in prelude, remove this line
-};
-// Remove the duplicate import
-// use vexide::devices::geometry::Point2;
+
+use nalgebra::Vector2;
+use uom::si::{f64::Length, length::inch};
+use vexide::devices::geometry::Point2;
 
 use crate::localization::localization::StateRepresentation;
 

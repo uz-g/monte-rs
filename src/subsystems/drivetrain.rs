@@ -1,18 +1,12 @@
 use alloc::{sync::Arc, vec::Vec};
 use core::{f64::consts::TAU, ops::Add, time::Duration};
-use vexide::prelude::*;
-use vexide::{
-    prelude::*,
-    sync::Mutex,
-    time::Instant,
-    devices::smart::GpsSensor,
-};
+
 use nalgebra::{Matrix3, Vector2};
 use uom::si::f64::{AngularVelocity, Length};
-use vexide::prelude::*;
 use vexide::{
+    core::{sync::Mutex, time::Instant},
+    devices::{smart::GpsSensor, PortError},
     prelude::*,
-    devices::controller::{Controller, ControllerAnalog},
 };
 
 use crate::{
@@ -189,11 +183,8 @@ pub struct TankDrive<'a> {
 }
 
 impl<'a> TankDrive<'a> {
-    fn get_power(&self) -> Option<(f64, f64)> {
-        Some((
-            self.controller.analog(ControllerAnalog::LeftY)? as f64 * 12.0,
-            self.controller.analog(ControllerAnalog::RightY)? as f64 * 12.0,
-        ))
+    pub fn new(controller: &'a Controller) -> Self {
+        TankDrive { controller }
     }
 }
 

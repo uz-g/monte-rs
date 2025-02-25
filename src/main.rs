@@ -1,18 +1,29 @@
 #![no_main]
 #![no_std]
 #![feature(future_join)]
+#![feature(async_closure)]
 #![feature(duration_millis_float)]
 #![feature(let_chains)]
 extern crate alloc;
-use alloc;
-use core;
+extern crate uom;
+
+use alloc::{boxed::Box, ffi::CString, format, sync::Arc, vec};
+use core::{future::join, panic::PanicInfo, time::Duration};
 
 use futures::{select_biased, FutureExt};
 use motion_profiling::combined_mp::CombinedMP;
 use nalgebra::Matrix3;
 use subsystems::drivetrain::VoltageDrive;
 use uom::si::{angle::revolution, f64::Angle, length::meter};
-use vexide::{devices::smart::GpsSensor, prelude::*, sync::Mutex};
+use vexide::{
+    core::sync::Mutex,
+    devices::{
+        controller::ControllerId,
+        screen::{Text, TextSize},
+        smart::GpsSensor,
+    },
+    prelude::*,
+};
 
 use crate::{
     actuator::{motor_group::MotorGroup, telemetry::Telemetry},
@@ -52,19 +63,21 @@ struct Robot {
 
 impl Robot {
     async fn new(mut peripherals: Peripherals) -> Self {
-        let _telemetry =
-            Telemetry::new(SerialPort::open(peripherals.port_20, SerialPort::MAX_BAUD_RATE).await?);
+        let _telemetry = Telemetry::new(SerialPort::open(
+            peripherals.port_20,
+            SerialPort::MAX_BAUD_RATE,
+        ));
 
         // TODO Fix drivetrain encoders with 5.5W behavior
 
         let drivetrain = Drivetrain::new(
             Arc::new(Mutex::new(MotorGroup::new(vec![
-                Motor::new(peripherals.port_4, Gearset::Blue, Direction::Forward),
+                Motor::new(peripherals.port_4, Gearset::Green, Direction::Forward),
                 Motor::new(peripherals.port_2, Gearset::Blue, Direction::Forward),
                 Motor::new(peripherals.port_3, Gearset::Blue, Direction::Reverse),
             ]))),
             Arc::new(Mutex::new(MotorGroup::new(vec![
-                Motor::new(peripherals.port_9, Gearset::Blue, Direction::Reverse),
+                Motor::new(peripherals.port_9, Gearset::Green, Direction::Reverse),
                 Motor::new(peripherals.port_6, Gearset::Blue, Direction::Forward),
                 Motor::new(peripherals.port_7, Gearset::Blue, Direction::Forward),
             ]))),
@@ -87,12 +100,7 @@ impl Robot {
                 ),
             ],
             vec![(AdiLineTracker::new(peripherals.adi_b), get_line_1_offset())],
-            GpsSensor::new(
-                peripherals.port_11,
-                get_gps_offset(),
-                ([0.0, 0.0], 0.0), // Use array instead of tuple
-            )
-            .await?, // Handle the Result
+            GpsSensor::new(peripherals.port_11, get_gps_offset(), ((0.0, 0.0), 0.0)),
         )
         .await;
 

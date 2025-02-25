@@ -1,9 +1,4 @@
 use alloc::boxed::Box;
-use vexide::{
-    prelude::*,
-    time::Instant,
-};
-use simba::scalar::Real;
 
 use motion_profiling::motion_profile::MotionProfile;
 use nalgebra::{Matrix3, SimdComplexField};
@@ -54,25 +49,31 @@ impl Ramsete {
     }
 }
 
-impl<'a> State<StateRepresentation, (AngularVelocity, AngularVelocity)> for Ramsete {fn update(&mut self, i: &StateRepresentation) -> Option<(AngularVelocity, AngularVelocity)> {
-    let command = self.motion_profile.get(Instant::now() - self.start_time)?;
+impl<'a> State<StateRepresentation, (AngularVelocity, AngularVelocity)> for Ramsete {
+    fn init(&mut self) {
+        self.start_time = Instant::now();
+    }
 
-    let error = Matrix3::new(
-        Real::cos(i.z),
-        Real::sin(i.z),
-        0.0,
-        -Real::sin(i.z),
-        Real::cos(i.z),
-        0.0,
-        0.0,
-        0.0,
-        1.0,
-    ) * (command.desired_pose - i);
+    fn update(&mut self, i: &StateRepresentation) -> Option<(AngularVelocity, AngularVelocity)> {
+        let command = self.motion_profile.get(Instant::now() - self.start_time)?;
 
-    let k = 2.0
-        * self.zeta
-        * Real::sqrt((command.desired_angular.get::<radian_per_second>().pow(2) as f64
-            + self.beta * command.desired_velocity.get::<meter_per_second>().pow(2) as f64));
+        let error = Matrix3::new(
+            i.z.cos(),
+            i.z.sin(),
+            0.0,
+            -i.z.sin(),
+            i.z.cos(),
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+        ) * (command.desired_pose - i);
+
+        let k = 2.0
+            * self.zeta
+            * (command.desired_angular.get::<radian_per_second>().pow(2) as f64
+                + self.beta * command.desired_velocity.get::<meter_per_second>().pow(2) as f64)
+                .sqrt();
 
         let velocity_commanded =
             command.desired_velocity.get::<meter_per_second>() * error.z.cos() + k * error.x;
