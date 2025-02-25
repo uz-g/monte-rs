@@ -2,7 +2,11 @@ use alloc::sync::Arc;
 
 use uom::si::{f64::Length, length::meter};
 use vexide::core::sync::Mutex;
-
+use vexide::prelude::*;
+use vexide::{
+    prelude::*,
+    sync::Mutex,
+};
 use crate::actuator::motor_group::MotorGroup;
 
 pub trait RotarySensor {

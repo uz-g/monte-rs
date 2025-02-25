@@ -2,7 +2,10 @@ use core::time::Duration;
 
 use uom::si::{angular_velocity::revolution_per_minute, f64::AngularVelocity};
 use vexide::prelude::{sleep, Controller, Motor, Position};
-
+use vexide::{
+    prelude::*,
+    devices::controller::{ControllerDigital, ControllerAnalog},
+};
 use crate::{
     config::{INTAKE_RATIO, LIFT_RATIO},
     state_machine::State,
@@ -90,10 +93,20 @@ impl State<f64, IntakeCommand> for LoadGoal {
     }
 }
 
-pub struct IntakeManual<'a> {
-    pub controller: &'a mut Controller,
-    pub lift_pos: f64,
-    pub top_pos: f64,
+impl IntakeManual<'_> {
+    fn get_intake_power(&self) -> f64 {
+        if self.controller.get_digital(ControllerDigital::R1).unwrap_or(false) {
+            12.0
+        } else if self.controller.get_digital(ControllerDigital::R2).unwrap_or(false) {
+            -12.0
+        } else {
+            0.0
+        }
+    }
+
+    fn get_roller_power(&self) -> f64 {
+        self.controller.get_analog(ControllerAnalog::RightY).unwrap_or(0.0) * 200.0
+    }
 }
 
 impl<'a> State<f64, IntakeCommand> for IntakeManual<'a> {

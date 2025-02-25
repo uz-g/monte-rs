@@ -1,5 +1,9 @@
+use vexide::prelude::*;
 use core::time::Duration;
-
+use vexide::{
+    prelude::*,
+    devices::controller::{ControllerDigital, LogicLevel},
+};
 use vexide::{
     core::println,
     devices::adi::digital::LogicLevel,
@@ -33,8 +37,10 @@ impl GoalClamp {
     }
 }
 
-pub struct GoalController<'a> {
-    pub controller: &'a Controller,
+impl GoalController<'_> {
+    fn get_button_state(&self) -> Option<LogicLevel> {
+        Some(self.controller.get_digital_new_press(ControllerDigital::A).unwrap_or(LogicLevel::High))
+    }
 }
 
 impl<'a> State<(), LogicLevel> for GoalController<'a> {
